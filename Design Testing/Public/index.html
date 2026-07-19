@@ -1,0 +1,2868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VIBE // Live Concert Tickets</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-color: #0B0B0B;
+      --card-bg: #121212;
+      --accent-color: #CCFF00;
+      --text-main: #FFFFFF;
+      --text-muted: #8E8E93;
+      --font-header: 'Syne', sans-serif;
+      --font-body: 'Space Grotesk', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; cursor: none; }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    body.modal-open {
+      overflow: hidden;
+    }
+
+    /* =============================================
+        BOOT SEQUENCE OVERLAY
+    ============================================= */
+    #boot-screen {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      transition: opacity 0.6s ease;
+    }
+
+    #boot-screen.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .boot-logo {
+      font-family: var(--font-header);
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -1px;
+      color: var(--text-main);
+      overflow: hidden;
+      white-space: nowrap;
+      width: 0;
+      border-right: 2px solid var(--accent-color);
+      animation: boot-type 0.8s steps(9, end) 0.2s forwards, boot-cursor-blink 0.5s step-end 0.2s 3;
+    }
+
+    @keyframes boot-type {
+      from { width: 0; }
+      to { width: 9ch; }
+    }
+
+    @keyframes boot-cursor-blink {
+      50% { border-color: transparent; }
+    }
+
+    .boot-lines {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      opacity: 0;
+      animation: boot-lines-in 0.3s ease 1.1s forwards;
+    }
+
+    @keyframes boot-lines-in { to { opacity: 1; } }
+
+    .boot-line {
+      font-size: 0.75rem;
+      letter-spacing: 2px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      opacity: 0;
+    }
+
+    .boot-line.l1 { animation: boot-line-appear 0.2s ease 1.1s forwards; }
+    .boot-line.l2 { animation: boot-line-appear 0.2s ease 1.3s forwards; }
+    .boot-line.l3 { animation: boot-line-appear 0.2s ease 1.5s forwards; }
+    .boot-line .ok { color: var(--accent-color); margin-left: 0.5rem; }
+
+    @keyframes boot-line-appear { to { opacity: 1; } }
+
+    .boot-bar-wrap {
+      width: 200px;
+      height: 2px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+      opacity: 0;
+      animation: boot-lines-in 0.1s ease 1.1s forwards;
+    }
+
+    .boot-bar-fill {
+      height: 100%;
+      background: var(--accent-color);
+      width: 0%;
+      box-shadow: 0 0 8px var(--accent-color);
+      animation: boot-fill 0.9s ease 1.1s forwards;
+    }
+
+    @keyframes boot-fill { to { width: 100%; } }
+
+    #site-content {
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+    #site-content.visible { opacity: 1; }
+
+    /* =============================================
+        CUSTOM CURSOR
+    ============================================= */
+    #custom-cursor {
+      width: 20px; height: 20px;
+      border: 2px solid var(--accent-color);
+      border-radius: 50%;
+      position: fixed;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 99999;
+      transition: width 0.2s, height 0.2s, background-color 0.2s;
+    }
+
+    /* =============================================
+        FILM GRAIN
+    ============================================= */
+    .grain {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+      opacity: 0.04; pointer-events: none; z-index: 999;
+    }
+
+    /* =============================================
+        FLOATING BG FILTER TEXT
+    ============================================= */
+    .floating-filter-bg {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      pointer-events: none; z-index: 1; overflow: hidden;
+    }
+
+    .float-text {
+      position: absolute;
+      font-family: var(--font-header);
+      font-weight: 800; font-size: 11vw; line-height: 1;
+      color: transparent;
+      -webkit-text-stroke: 1px rgba(255, 255, 255, 0.03);
+      text-transform: uppercase; white-space: nowrap; user-select: none;
+      transition: -webkit-text-stroke 0.5s ease, opacity 0.3s ease, filter 0.3s ease;
+    }
+
+    .float-text[data-active="true"] { -webkit-text-stroke: 1px rgba(204, 255, 0, 0.12); }
+    .float-text.swapping { opacity: 0; filter: blur(6px); }
+
+    .ft-1 { top: 22%; left: -5%; animation: driftRight 32s linear infinite alternate; }
+    .ft-2 { top: 48%; right: -8%; animation: driftLeft 28s linear infinite alternate; }
+    .ft-3 { top: 75%; left: 8%; animation: driftRight 36s linear infinite alternate; }
+
+    @keyframes driftRight {
+      0% { transform: translate3d(0,0,0) rotate(-1deg); }
+      100% { transform: translate3d(4vw,2vh,0) rotate(1deg); }
+    }
+    @keyframes driftLeft {
+      0% { transform: translate3d(0,0,0) rotate(1deg); }
+      100% { transform: translate3d(-4vw,-2vh,0) rotate(-1deg); }
+    }
+
+    /* =============================================
+        HEADER
+    ============================================= */
+    header {
+      padding: 3rem 4rem;
+      display: flex; justify-content: space-between; align-items: center; gap: 2rem;
+      position: sticky; top: 0;
+      background-color: var(--bg-color); z-index: 100;
+    }
+
+    .logo {
+      font-family: var(--font-header);
+      font-weight: 800; font-size: 1.5rem; letter-spacing: -1px;
+      flex-shrink: 0; position: relative;
+    }
+
+    .logo::before,
+    .logo::after {
+      content: attr(data-text);
+      position: absolute; top: 0; left: 0;
+      font-family: inherit; font-weight: inherit; font-size: inherit; letter-spacing: inherit;
+      color: var(--text-main);
+      opacity: 0;
+    }
+
+    .logo.glitching::before {
+      opacity: 0.8;
+      color: var(--accent-color);
+      clip-path: polygon(0 0, 100% 0, 100% 35%, 0 35%);
+      transform: translate(-3px, 1px);
+      animation: glitch-slice-top 0.18s steps(1) forwards;
+    }
+
+    .logo.glitching::after {
+      opacity: 0.8;
+      color: #CCFF00;
+      clip-path: polygon(0 65%, 100% 65%, 100% 100%, 0 100%);
+      transform: translate(3px, -1px);
+      animation: glitch-slice-bot 0.18s steps(1) forwards;
+    }
+
+    @keyframes glitch-slice-top {
+      0%   { transform: translate(-3px, 1px);  clip-path: polygon(0 0, 100% 0, 100% 35%, 0 35%); }
+      33%  { transform: translate(3px, -1px);  clip-path: polygon(0 10%, 100% 10%, 100% 50%, 0 50%); }
+      66%  { transform: translate(-2px, 2px);  clip-path: polygon(0 5%, 100% 5%, 100% 25%, 0 25%); }
+      100% { opacity: 0; }
+    }
+
+    @keyframes glitch-slice-bot {
+      0%   { transform: translate(3px, -1px);  clip-path: polygon(0 65%, 100% 65%, 100% 100%, 0 100%); }
+      33%  { transform: translate(-3px, 1px);  clip-path: polygon(0 50%, 100% 50%, 100% 90%, 0 90%); }
+      66%  { transform: translate(2px, -2px);  clip-path: polygon(0 70%, 100% 70%, 100% 95%, 0 95%); }
+      100% { opacity: 0; }
+    }
+
+    .ticker-wrap {
+      flex-grow: 1; overflow: hidden;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 5px; display: flex; white-space: nowrap;
+      -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 8%, #000 92%, transparent 100%);
+      mask-image: linear-gradient(to right, transparent 0%, #000 8%, #000 92%, transparent 100%);
+    }
+
+    .ticker-track { display: flex; width: max-content; animation: marquee 25s linear infinite; }
+    .ticker-track span { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px; color: var(--text-muted); padding-right: 2rem; }
+
+    @keyframes marquee {
+      0% { transform: translate3d(0,0,0); }
+      100% { transform: translate3d(-50%,0,0); }
+    }
+
+    .header-actions { display: flex; align-items: center; gap: 1.5rem; flex-shrink: 0; }
+
+    .btn-nav-auth {
+      background: transparent; border: none; color: var(--text-main);
+      font-family: var(--font-body); font-size: 0.9rem; text-transform: uppercase;
+      letter-spacing: 1px; padding-bottom: 5px;
+      border-bottom: 1px solid var(--accent-color);
+      transition: opacity 0.3s ease; white-space: nowrap; flex-shrink: 0;
+    }
+    .btn-nav-auth:hover { opacity: 0.7; }
+
+    .btn-nav-tickets {
+      background: transparent; border: none; color: var(--text-muted);
+      font-family: var(--font-body); font-size: 0.9rem; text-transform: uppercase;
+      letter-spacing: 1px; padding-bottom: 5px; position: relative;
+      border-bottom: 1px solid transparent;
+      transition: color 0.3s ease, border-color 0.3s ease; white-space: nowrap; flex-shrink: 0;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .btn-nav-tickets:hover { color: var(--text-main); border-color: rgba(255,255,255,0.2); }
+
+    .ticket-count-badge {
+      background: var(--accent-color); color: #000;
+      font-size: 0.65rem; font-weight: 700; padding: 1px 6px;
+      border-radius: 20px; letter-spacing: 0.5px;
+    }
+
+    /* =============================================
+        VERTICAL EDGE FILTER BAR
+    ============================================= */
+    .vertical-edge-filterbar {
+      position: fixed; left: 0; top: 0; height: 100vh; width: 3.5rem;
+      display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 0.85rem;
+      border-right: 1px solid rgba(255,255,255,0.05);
+      background-color: var(--bg-color); z-index: 200;
+    }
+
+    .edge-filter-chip {
+      background: transparent; border: none;
+      color: var(--text-muted); font-family: var(--font-body);
+      font-size: 0.6rem; font-weight: 500; text-transform: uppercase;
+      letter-spacing: 1.5px; writing-mode: vertical-rl; transform: rotate(180deg);
+      transition: color 0.3s ease; z-index: 2; padding: 0.2rem 0;
+    }
+
+    .edge-filter-chip:hover, .edge-filter-chip.active { color: #000; }
+
+    .filter-slider-indicator {
+      position: absolute; left: 0; width: 100%;
+      background-color: var(--accent-color); z-index: 1; pointer-events: none;
+      transition: top 0.4s cubic-bezier(0.16,1,0.3,1), height 0.4s cubic-bezier(0.16,1,0.3,1);
+      box-shadow: 2px 0 12px rgba(204,255,0,0.3);
+    }
+
+    .kb-hint {
+      position: absolute;
+      bottom: 0.8rem;
+      font-size: 6px;
+      letter-spacing: 1px;
+      color: rgba(255,255,255,0.12);
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      text-transform: uppercase;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    /* =============================================
+        HERO
+    ============================================= */
+    .hero-view-wrapper {
+      height: 100vh; display: flex; align-items: center;
+      padding: 0 4rem 0 6rem;
+      position: sticky; top: 0; z-index: 2;
+      background-color: var(--bg-color);
+      animation: hero-enter 0.7s cubic-bezier(0.16,1,0.3,1) both;
+    }
+
+    @keyframes hero-enter {
+      from { opacity: 0; transform: translateX(-2rem); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .hero-title-section { width: 100%; display: flex; flex-direction: column; overflow: hidden; }
+
+    .hero-title-section h1 {
+      font-family: var(--font-header);
+      font-size: 7vw; line-height: 0.9;
+      text-transform: uppercase; font-weight: 800; letter-spacing: -3px;
+      display: flex; flex-direction: column;
+    }
+
+    .line-left {
+      align-self: flex-start;
+      animation: split-left linear both;
+      animation-timeline: scroll(root);
+      animation-range: exit 0% exit 80%;
+    }
+
+    .line-right {
+      align-self: flex-end; color: transparent;
+      -webkit-text-stroke: 1px var(--text-main);
+      animation: split-right linear both;
+      animation-timeline: scroll(root);
+      animation-range: exit 0% exit 80%;
+    }
+
+    @keyframes split-left { to { transform: translateX(-25vw); } }
+    @keyframes split-right { to { transform: translateX(25vw); } }
+
+    /* =============================================
+        HERO SCATTER TEXT
+    ============================================= */
+    .hero-scatter {
+      position: absolute; font-family: var(--font-body);
+      text-transform: uppercase; letter-spacing: 2px;
+      pointer-events: none; white-space: nowrap; line-height: 1;
+      z-index: 3; user-select: none;
+      animation: blur-out linear both;
+      animation-timeline: scroll(root);
+      animation-range: exit 0% exit 50%;
+    }
+
+    @keyframes blur-out { to { filter: blur(10px); opacity: 0; } }
+
+    .hs-lime  { color: var(--accent-color); }
+    .hs-muted { color: rgba(255,255,255,0.2); }
+    .hs-dim   { color: rgba(255,255,255,0.1); }
+    .hs-white { color: rgba(255,255,255,0.5); }
+    .hs-vert  { writing-mode: vertical-rl; }
+
+    .hs-top-left-1 { top: 120px; left: 6rem; font-size: 10px; }
+    .hs-top-left-2 { top: 136px; left: 6rem; font-size: 9px; letter-spacing: 3px; }
+    .hs-top-left-3 { top: 158px; left: 6rem; font-size: 8px; }
+    .hs-top-right-1 { top: 120px; right: 4rem; font-size: 9px; }
+    .hs-top-right-2 { top: 136px; right: 4rem; font-size: 8px; letter-spacing: 2.5px; }
+
+    @media (max-width: 900px) { .hero-scatter { display: none; } }
+
+    /* =============================================
+        CONCERT GRID & CARDS
+    ============================================= */
+    .concert-grid {
+      display: grid; grid-template-columns: repeat(12,1fr);
+      gap: 2.5rem; padding: 10vh 4rem 10rem 6rem;
+      position: relative; z-index: 3;
+      background-color: var(--bg-color); min-height: 40vh;
+    }
+
+    .concert-card {
+      background: var(--card-bg);
+      border: 1px solid rgba(255,255,255,0.05);
+      transition: border-color 0.4s ease, padding-bottom 0.45s cubic-bezier(0.16,1,0.3,1);
+      opacity: 0; transform: translateY(30px);
+      animation: card-filter-reentry 0.6s cubic-bezier(0.16,1,0.3,1) forwards;
+      animation-delay: var(--stagger-delay, 0s);
+      overflow: hidden;
+      position: relative;
+    }
+
+    @keyframes card-filter-reentry {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card-large { grid-column: span 7; animation-range: entry 0% entry 25%; }
+    .card-small { grid-column: span 5; margin-top: 4rem; animation-range: entry 5% entry 30%; }
+    .card-full  { grid-column: span 12; animation-range: entry 10% entry 35%; }
+
+    .card-front {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .card-full .card-front {
+      flex-direction: row;
+      gap: 2rem;
+      align-items: center;
+    }
+
+    .image-wrapper {
+      position: relative; width: 100%; height: 380px;
+      overflow: hidden; background: #161616;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .card-small .image-wrapper { height: 300px; }
+    .card-full  .image-wrapper { height: 300px; width: 45%; border-bottom: none; border-right: 1px solid rgba(255,255,255,0.05); }
+
+    .art-placeholder {
+      width: 100%; height: 100%; object-fit: cover;
+      filter: grayscale(100%) contrast(125%) brightness(0.6);
+      transition: filter 0.5s ease, transform 0.5s cubic-bezier(0.16,1,0.3,1);
+    }
+
+    .image-wrapper::after {
+      content: ''; position: absolute; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+      opacity: 0; transition: opacity 0.3s ease; pointer-events: none; z-index: 1;
+    }
+    .concert-card:hover .image-wrapper::after { opacity: 1; }
+
+    .image-wrapper::before {
+      content: ''; position: absolute; left: 0; right: 0; height: 60px; top: -60px;
+      background: linear-gradient(to bottom, transparent, rgba(204,255,0,0.06), transparent);
+      pointer-events: none; z-index: 2; transition: none;
+    }
+    .concert-card:hover .image-wrapper::before {
+      animation: scanline-sweep 0.6s ease 0.05s forwards;
+    }
+    @keyframes scanline-sweep {
+      0%   { top: -60px; opacity: 1; }
+      100% { top: 100%;  opacity: 0; }
+    }
+
+    .ticket-status {
+      position: absolute; top: 1rem; right: 1rem;
+      background: var(--accent-color); color: #000;
+      padding: 0.3rem 0.6rem; font-size: 0.75rem; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 1px; z-index: 2;
+    }
+
+    .card-countdown {
+      font-size: 0.7rem; letter-spacing: 2px; color: var(--accent-color);
+      text-transform: uppercase; margin-bottom: 1.2rem;
+      font-family: var(--font-body); opacity: 0.8;
+    }
+
+    .card-details {
+      padding: 1.5rem;
+      display: flex; flex-direction: column; flex: 1;
+      justify-content: space-between;
+      transition: transform 0.4s cubic-bezier(0.16,1,0.3,1);
+    }
+    .card-full .card-details { padding: 2rem; width: 55%; }
+
+    .card-details h3 {
+      font-family: var(--font-header); font-size: 2rem; font-weight: 800;
+      letter-spacing: -0.5px; line-height: 1; margin-bottom: 0.5rem;
+    }
+    .card-full .card-details h3 { font-size: 2.8rem; }
+
+    .venue-info { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 1px; }
+    .card-meta { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem; margin-top: auto; }
+    .price { font-size: 1.2rem; font-weight: 500; }
+
+    .btn-ticket {
+      background: transparent; border: 1px solid var(--text-main); color: var(--text-main);
+      padding: 0.6rem 1.5rem; font-family: var(--font-body); font-size: 0.9rem;
+      font-weight: 500; text-transform: uppercase; transition: all 0.3s ease;
+    }
+
+    .concert-card:hover { border-color: var(--accent-color); }
+    .concert-card:hover .art-placeholder { filter: grayscale(20%) contrast(110%) brightness(0.8); transform: scale(1.04); }
+    .concert-card:hover .card-details { transform: translateY(-4px); }
+    .concert-card:hover .btn-ticket { background: var(--text-main); color: #000; }
+
+    /* =============================================
+        FULL-BLEED TERMINAL MODAL OVERLAY
+    ============================================= */
+    .terminal-modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 2000;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 150ms ease;
+    }
+    .terminal-modal-backdrop.active {
+      opacity: 1; pointer-events: auto;
+    }
+
+    .terminal-modal-panel {
+      width: 70vw; max-width: 1100px; min-width: 800px;
+      height: 75vh; max-height: 650px;
+      background: rgba(13, 13, 13, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: grid; grid-template-columns: 1.2fr 1fr;
+      position: relative; overflow: hidden;
+      transform: translateY(40px);
+      opacity: 0;
+      transition: transform 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 300ms ease;
+    }
+    .terminal-modal-backdrop.active .terminal-modal-panel {
+      transform: translateY(0); opacity: 1;
+    }
+
+    /* Left Column Architecture */
+    .terminal-left {
+      position: relative; border-right: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 3rem 2rem 2rem; background: rgba(0,0,0,0.2);
+    }
+      
+    .terminal-ghost-header {
+      position: absolute; top: 40%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-family: var(--font-header); font-weight: 800; font-size: 5.5vw;
+      color: rgba(255, 255, 255, 0.02); text-transform: uppercase;
+      white-space: nowrap; user-select: none; pointer-events: none; z-index: 0;
+      letter-spacing: -2px; text-align: center; width: 90%; overflow: hidden;
+    }
+
+    .terminal-diagram-container {
+      width: 100%; height: 80%; display: flex; align-items: center; justify-content: center;
+      position: relative; z-index: 1;
+    }
+    .terminal-diagram-container svg {
+      width: 85%; height: 85%; overflow: visible;
+    }
+    .terminal-diagram-container svg text {
+      font-family: var(--font-body) !important;
+    }
+
+    .terminal-coords-bar {
+      position: absolute; bottom: 1.5rem; left: 2rem;
+      font-size: 0.65rem; font-family: monospace; letter-spacing: 2px;
+      color: var(--text-muted); opacity: 0.7; z-index: 1;
+    }
+
+    /* Right Column Architecture */
+    .terminal-right {
+      display: flex; flex-direction: column; padding: 2.5rem;
+      justify-content: space-between; position: relative;
+    }
+
+    .terminal-close-btn {
+      position: absolute; top: 1.5rem; right: 1.5rem;
+      background: transparent; border: none; color: var(--text-muted);
+      font-size: 1.2rem; transition: color 0.2s ease;
+    }
+    .terminal-close-btn:hover { color: var(--text-main); }
+
+    .terminal-meta-block { display: flex; flex-direction: column; gap: 0.25rem; }
+    .terminal-show-title { font-family: var(--font-header); font-size: 1.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: -0.5px; }
+    .terminal-show-venue { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+
+    .terminal-tiers-list { display: flex; flex-direction: column; gap: 0.75rem; margin: 1.5rem 0; }
+      
+    .terminal-tier-card {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 1rem 1.25rem; border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.01); transition: all 0.25s ease;
+      position: relative;
+    }
+    .terminal-tier-card::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      background: transparent; transition: background 0.2s;
+    }
+    .terminal-tier-card:hover, .terminal-tier-card.selected {
+      background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.2);
+    }
+
+    .terminal-tier-card.tier-svip:hover, .terminal-tier-card.tier-svip.selected { border-color: rgba(204,255,0,0.3); background: rgba(204,255,0,0.03); }
+    .terminal-tier-card.tier-svip::before { background: var(--accent-color); }
+    .terminal-tier-card.tier-svip.selected .tier-title { color: var(--accent-color); }
+
+    .terminal-tier-card.tier-vip:hover, .terminal-tier-card.tier-vip.selected { border-color: rgba(255,183,77,0.3); background: rgba(255,183,77,0.03); }
+    .terminal-tier-card.tier-vip::before { background: #FFB74D; }
+    .terminal-tier-card.tier-vip.selected .tier-title { color: #FFB74D; }
+
+    .terminal-tier-card.tier-ga::before { background: rgba(255,255,255,0.4); }
+    .terminal-tier-card.tier-ga.selected .tier-title { color: #FFF; }
+
+    .tier-info-left { display: flex; flex-direction: column; gap: 0.15rem; }
+    .tier-headline { display: flex; align-items: center; gap: 0.5rem; }
+    .tier-key-badge { font-size: 0.6rem; font-family: monospace; background: rgba(255,255,255,0.1); color: var(--text-muted); padding: 1px 4px; border-radius: 2px; }
+    .terminal-tier-card.selected .tier-key-badge { background: rgba(255,255,255,0.2); color: #fff; }
+    .tier-title { font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1.5px; }
+    .tier-demand-ticker { font-size: 0.68rem; font-family: monospace; color: var(--text-muted); }
+    .tier-demand-ticker span { color: var(--accent-color); font-weight: bold; }
+    .terminal-tier-card.tier-vip .tier-demand-ticker span { color: #FFB74D; }
+      
+    .tier-info-right { text-align: right; }
+    .tier-rate { font-family: var(--font-header); font-size: 1.15rem; font-weight: 700; }
+    .tier-status-text { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+
+    .terminal-barcode-strip {
+      position: absolute; right: 0; bottom: 5rem; top: 5rem; width: 12px;
+      background: repeating-linear-gradient(90deg, rgba(255,255,255,0.08), rgba(255,255,255,0.08) 1px, transparent 1px, transparent 4px);
+      opacity: 0.5; pointer-events: none;
+    }
+
+    .terminal-action-area { display: flex; flex-direction: column; gap: 0.5rem; }
+    .terminal-action-area .btn-submit:disabled { cursor: not-allowed; }
+    .terminal-action-area .btn-submit { margin-top: 0; }
+    .terminal-ux-hint { font-size: 0.65rem; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; text-align: center; }
+
+    .svg-zone {
+      transition: fill-opacity 0.25s ease, stroke 0.25s ease, stroke-width 0.25s ease, filter 0.25s ease;
+    }
+    .svg-zone.zone-active {
+      fill-opacity: 0.35 !important;
+      stroke-width: 1.5px !important;
+      filter: drop-shadow(0 0 4px var(--accent-color));
+    }
+    .svg-zone.zone-svip.zone-active {
+      stroke: var(--accent-color) !important;
+      filter: drop-shadow(0 0 6px var(--accent-color));
+    }
+    .svg-zone.zone-vip.zone-active {
+      stroke: #FFB74D !important;
+      filter: drop-shadow(0 0 6px #FFB74D);
+    }
+    .svg-zone.zone-ga.zone-active {
+      stroke: #FFF !important;
+      filter: drop-shadow(0 0 6px #FFF);
+    }
+
+    .svg-seat {
+      cursor: pointer;
+      transition: fill 0.2s, stroke 0.2s, r 0.2s;
+    }
+    .svg-seat.seat-occupied {
+      fill: #222224 !important;
+      stroke: rgba(255,255,255,0.05) !important;
+      cursor: not-allowed;
+    }
+    .svg-seat:not(.seat-occupied):hover {
+      r: 3.5px;
+      stroke-width: 1px;
+    }
+    .svg-seat.seat-selected {
+      fill: #FFFFFF !important;
+      stroke: var(--accent-color) !important;
+      stroke-width: 1.5px !important;
+      r: 4px;
+    }
+
+    /* =============================================
+        ASYMMETRICAL ARTIST MODAL
+    ============================================= */
+    .artist-modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      z-index: 2000; display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+    }
+    .artist-modal-backdrop.active {
+      opacity: 1; pointer-events: auto;
+    }
+
+    .artist-modal-panel {
+      width: 85vw; max-width: 1100px; height: 75vh; max-height: 700px;
+      background: var(--bg-color); border: 1px solid rgba(255,255,255,0.08);
+      position: relative; display: flex;
+      transform: scale(0.98) translateY(30px); opacity: 0;
+      transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease;
+    }
+    .artist-modal-backdrop.active .artist-modal-panel {
+      transform: scale(1) translateY(0); opacity: 1;
+    }
+
+    .artist-close-btn {
+      position: absolute; top: 1.5rem; left: 1.5rem;
+      background: transparent; border: none; color: var(--text-muted);
+      font-family: var(--font-body); font-size: 1.5rem; z-index: 10;
+      transition: color 0.3s;
+    }
+    .artist-close-btn:hover { color: var(--accent-color); }
+
+    .artist-ghost-name {
+      position: absolute; right: -8%; top: 5%;
+      font-family: var(--font-header); font-size: 14vw; line-height: 0.8; font-weight: 800;
+      color: transparent; -webkit-text-stroke: 1px rgba(255,255,255,0.03);
+      writing-mode: vertical-rl; transform: rotate(180deg);
+      pointer-events: none; user-select: none; z-index: 0; white-space: nowrap;
+    }
+
+    .artist-left {
+      width: 40%; height: 100%; position: relative; z-index: 2;
+    }
+    .artist-left img {
+      width: 125%;
+      height: 100%; object-fit: cover;
+      filter: grayscale(100%) contrast(130%) brightness(0.6);
+      clip-path: polygon(0 0, 100% 0, 80% 100%, 0 100%);
+    }
+
+    .artist-right {
+      width: 60%; 
+      padding: 5rem 4rem 4rem 7rem;
+      display: flex; flex-direction: column; justify-content: center;
+      position: relative; z-index: 3;
+    }
+
+    .artist-header-block { margin-bottom: 2rem; }
+    .artist-header-block h2 {
+      font-family: var(--font-header); 
+      font-size: clamp(2rem, 3.8vw, 3.2rem);
+      font-weight: 800;
+      line-height: 0.9; text-transform: uppercase; letter-spacing: -2px;
+      color: var(--text-main); margin-bottom: 0.5rem;
+      max-width: 95%;
+    }
+    .artist-genre {
+      font-family: var(--font-body); font-size: 0.85rem; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--text-muted); border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 1rem; display: inline-block;
+    }
+    
+    .artist-bio {
+      font-size: 1rem; line-height: 1.6; color: rgba(255,255,255,0.7);
+      max-width: 90%; font-family: monospace;
+    }
+    .artist-bio-prefix { color: var(--accent-color); font-weight: bold; font-size: 0.8rem; display: block; margin-bottom: 0.5rem; letter-spacing: 1px; }
+
+    /* =============================================
+        AUTH / CHECKOUT MODAL (CENTERED VIEW)
+    ============================================= */
+    .auth-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      z-index: 3000; opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+    }
+    .auth-drawer {
+      position: fixed; 
+      top: 50%; 
+      left: 50%;
+      width: 450px; 
+      max-width: 90vw;
+      height: auto; 
+      max-height: 85vh;
+      background: rgba(18,18,18,0.96); 
+      border: 1px solid rgba(255,255,255,0.1); 
+      box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+      z-index: 3010; 
+      padding: 3rem; 
+      display: flex; 
+      flex-direction: column; 
+      transform: translate(-50%, -45%) scale(0.96);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+      overflow-y: auto;
+    }
+    body.auth-open .auth-overlay { opacity: 1; pointer-events: auto; }
+    body.auth-open .auth-drawer { 
+      opacity: 1;
+      pointer-events: auto;
+      transform: translate(-50%, -50%) scale(1); 
+    }
+
+    .auth-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2.5rem; }
+    .auth-header h2 { font-family: var(--font-header); font-size: 1.8rem; text-transform: uppercase; letter-spacing: -0.5px; }
+    .btn-close { background: transparent; border: none; color: var(--text-muted); font-size: 1.5rem; transition: color 0.3s; }
+    .btn-close:hover { color: var(--text-main); }
+
+    .pipeline-steps-indicator { display: flex; gap: 0.5rem; margin-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 1rem; }
+    .pipeline-step { font-size: 0.7rem; letter-spacing: 1px; color: var(--text-muted); text-transform: uppercase; font-weight: 500; }
+    .pipeline-step.active { color: var(--accent-color); }
+
+    .checkout-summary-box { background: rgba(255,255,255,0.02); padding: 1.25rem; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 2rem; }
+    .checkout-summary-box h4 { font-family: var(--font-header); font-size: 1.2rem; text-transform: uppercase; margin-bottom: 0.25rem; color: var(--accent-color); }
+    .checkout-summary-box p { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem; }
+    .checkout-row { display: flex; justify-content: space-between; font-size: 0.9rem; padding: 0.4rem 0; }
+    .checkout-row.total { border-top: 1px dashed rgba(255,255,255,0.15); margin-top: 0.5rem; padding-top: 0.75rem; font-weight: bold; color: var(--text-main); }
+
+    .input-pill-select { width: 100%; background: #161616; border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 0.8rem; font-family: var(--font-body); font-size: 0.9rem; margin-bottom: 1.5rem; outline: none; }
+    .input-pill-select:focus { border-color: var(--accent-color); }
+
+    .form-group { margin-bottom: 2rem; position: relative; }
+    .form-group input { width: 100%; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); padding: 0.8rem 0; color: var(--text-main); font-family: var(--font-body); font-size: 1rem; transition: border-color 0.3s; }
+    .form-group input:focus { outline: none; border-color: var(--accent-color); }
+    .form-group label { position: absolute; top: 0.8rem; left: 0; color: var(--text-muted); pointer-events: none; transition: all 0.3s ease; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; }
+    .form-group input:focus ~ label, .form-group input:not(:placeholder-shown) ~ label { top: -12px; font-size: 0.75rem; color: var(--accent-color); }
+
+    .btn-submit { background: var(--accent-color); color: #000; border: none; padding: 1rem; width: 100%; font-family: var(--font-body); font-weight: 500; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 1rem; transition: opacity 0.3s; }
+    .btn-submit:hover { opacity: 0.9; }
+    .auth-toggle-text { margin-top: 2rem; text-align: center; color: var(--text-muted); font-size: 0.9rem; }
+    .auth-toggle-text span { color: var(--text-main); text-decoration: underline; margin-left: 5px; transition: color 0.3s; }
+
+    .register-only { display: none; }
+    body.view-register .register-only { display: block; }
+    body.view-register .login-hidden { display: none; }
+
+    /* =============================================
+        LINEUP SECTION
+    ============================================= */
+    .lineup-section { background-color: var(--bg-color); padding: 15vh 4rem 5rem 6rem; border-top: 1px solid rgba(255,255,255,0.05); position: relative; z-index: 3; }
+    .lineup-container-boundary { border-bottom: 1px solid rgba(255,255,255,0.04); position: absolute; left: 6rem; right: 4rem; top: 45%; pointer-events: none; }
+    .lineup-header { margin-bottom: 8rem; display: flex; justify-content: space-between; align-items: flex-end; position: relative; }
+    .lineup-header::after { content: "[ REVISION LOG // VOL.04 ]"; position: absolute; bottom: -3rem; left: 0; font-size: 0.75rem; color: rgba(255,255,255,0.15); letter-spacing: 3px; }
+    .lineup-header h2 { font-family: var(--font-header); font-size: 5vw; line-height: 0.9; text-transform: uppercase; font-weight: 800; letter-spacing: -2px; }
+    .lineup-header p { color: var(--text-muted); font-size: 1rem; text-transform: uppercase; letter-spacing: 2px; max-width: 300px; text-align: right; }
+
+    .lineup-grid { display: grid; grid-template-columns: repeat(12,1fr); gap: 4rem 2.5rem; position: relative; }
+    .lineup-grid::before { content: "// EXPERIMENTAL CURATION PHASE _ AUD-098"; position: absolute; top: 4rem; left: 48%; font-size: 0.7rem; color: rgba(255,255,255,0.15); letter-spacing: 2px; }
+
+    .lineup-card { display: flex; flex-direction: column; position: relative; animation: card-reveal linear both; animation-timeline: scroll(root); }
+    .lineup-card.artist-1 { grid-column: 1 / span 5; animation-range: entry 5% entry 30%; }
+    .lineup-card.artist-2 { grid-column: 7 / span 6; margin-top: 12rem; animation-range: entry 15% entry 40%; }
+    .lineup-card.artist-3 { grid-column: 2 / span 9; margin-top: 6rem; animation-range: entry 10% entry 35%; }
+
+    @keyframes card-reveal { from { transform: translateY(60px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    .lineup-frame { position: relative; width: 100%; overflow: hidden; background: #161616; border: 1px solid rgba(255,255,255,0.1); transition: border-color 0.4s ease; }
+    .artist-1 .lineup-frame { height: 500px; }
+    .artist-2 .lineup-frame { height: 400px; }
+    .artist-3 .lineup-frame { height: 350px; }
+    .lineup-img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(100%) contrast(140%) brightness(0.5); transition: transform 0.6s cubic-bezier(0.16,1,0.3,1), filter 0.6s ease; }
+
+    .lineup-details { margin-top: 2rem; display: flex; justify-content: space-between; align-items: flex-start; transition: transform 0.4s cubic-bezier(0.16,1,0.3,1); }
+    .lineup-details .meta { display: flex; flex-direction: column; }
+    .lineup-details h3 { font-family: var(--font-header); font-size: 2.2rem; text-transform: uppercase; font-weight: 700; line-height: 1; letter-spacing: -1px; margin-bottom: 0.2rem; transition: color 0.3s ease; }
+    .lineup-details .genre { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 2px; color: var(--text-muted); }
+    .lineup-details .order-num { font-family: var(--font-header); font-size: 1rem; color: transparent; -webkit-text-stroke: 1px rgba(255,255,255,0.3); }
+
+    .lineup-card:hover .lineup-frame { border-color: var(--accent-color); }
+    .lineup-card:hover .lineup-img { filter: grayscale(20%) contrast(110%) brightness(0.8); transform: scale(1.03); }
+    .lineup-card:hover .lineup-details { transform: translateY(-4px); }
+    .lineup-card:hover h3 { color: var(--accent-color); }
+
+    /* =============================================
+        FOOTER — live status ticker
+    ============================================= */
+    .minimal-footer {
+      position: sticky; bottom: 0; left: 0; width: 100%;
+      background: rgba(11,11,11,0.85);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding: 1.5rem 4rem 1.5rem 6rem;
+      display: flex; justify-content: space-between; align-items: center; z-index: 99;
+    }
+
+    .footer-left { display: flex; align-items: center; gap: 0.75rem; }
+    .pulse-indicator { width: 6px; height: 6px; background-color: var(--accent-color); border-radius: 50%; box-shadow: 0 0 10px var(--accent-color); animation: pulse-glow 2s infinite; }
+    @keyframes pulse-glow { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+
+    .footer-status {
+      font-size: 0.75rem; letter-spacing: 1.5px; color: var(--text-muted);
+      transition: opacity 0.3s ease;
+    }
+    .footer-status.fading { opacity: 0; }
+
+    .btn-fast-pass { background: var(--text-main); color: #000; border: none; padding: 0.8rem 2rem; font-family: var(--font-body); font-weight: 500; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; transition: all 0.3s ease; }
+    .btn-fast-pass:hover { background: var(--accent-color); transform: translateY(-2px); }
+
+    /* =============================================
+        MY TICKETS DRAWER
+    ============================================= */
+    .tickets-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      z-index: 3000; opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+    }
+    .tickets-drawer {
+      position: fixed; top: 0; right: 0; height: 100vh; width: 460px; max-width: 92vw;
+      background: rgba(15,15,15,0.98); border-left: 1px solid rgba(255,255,255,0.1);
+      box-shadow: -20px 0 50px rgba(0,0,0,0.7); z-index: 3010;
+      padding: 3rem 2.5rem; display: flex; flex-direction: column;
+      transform: translateX(100%); transition: transform 0.45s cubic-bezier(0.16,1,0.3,1);
+      overflow-y: auto;
+    }
+    body.tickets-open .tickets-overlay { opacity: 1; pointer-events: auto; }
+    body.tickets-open .tickets-drawer { transform: translateX(0); }
+
+    .tickets-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+    .tickets-header h2 { font-family: var(--font-header); font-size: 1.6rem; text-transform: uppercase; letter-spacing: -0.5px; }
+    .tickets-subhead { font-size: 0.75rem; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 2rem; }
+
+    .tickets-list { display: flex; flex-direction: column; gap: 1.25rem; flex: 1; }
+
+    .ticket-history-card {
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.015);
+      padding: 1.25rem;
+      position: relative;
+      transition: border-color 0.3s ease;
+    }
+    .ticket-history-card::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      background: var(--accent-color);
+    }
+    .ticket-history-card.tier-vip::before { background: #FFB74D; }
+    .ticket-history-card.tier-ga::before { background: rgba(255,255,255,0.4); }
+    .ticket-history-card:hover { border-color: rgba(255,255,255,0.2); }
+
+    .thc-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; }
+    .thc-title { font-family: var(--font-header); font-size: 1.15rem; font-weight: 700; text-transform: uppercase; letter-spacing: -0.3px; line-height: 1.15; }
+    .thc-venue { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 0.25rem; }
+    .thc-tier-badge { font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 0.2rem 0.5rem; background: rgba(204,255,0,0.1); color: var(--accent-color); flex-shrink: 0; margin-left: 0.75rem; }
+    .ticket-history-card.tier-vip .thc-tier-badge { background: rgba(255,183,77,0.1); color: #FFB74D; }
+    .ticket-history-card.tier-ga .thc-tier-badge { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
+
+    .thc-meta-row { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); font-family: monospace; letter-spacing: 0.5px; padding-top: 0.75rem; border-top: 1px dashed rgba(255,255,255,0.1); }
+    .thc-meta-row span b { color: var(--text-main); font-family: var(--font-body); }
+
+    .tickets-empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 1rem; opacity: 0.6; }
+    .tickets-empty-state .glyph { font-size: 2.5rem; opacity: 0.3; }
+    .tickets-empty-state p { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; max-width: 220px; }
+
+    /* =============================================
+        RESPONSIVE
+    ============================================= */
+    @media (max-width: 900px) {
+      .vertical-edge-filterbar { display: none; }
+      .card-large, .card-small, .card-full { grid-column: span 12; margin-top: 0 !important; }
+      .card-full { flex-direction: column; }
+      .card-full .card-front { flex-direction: column; }
+      .card-full .image-wrapper { height: 280px; width: 100% !important; border-right: none !important; border-bottom: 1px solid rgba(255,255,255,0.05) !important; }
+      header { padding: 2rem; }
+      .concert-grid { padding: 2rem 2rem 6rem 2rem; gap: 2rem; }
+      .hero-view-wrapper { padding: 0 2rem; }
+      .auth-drawer { width: 92vw; max-width: 450px; padding: 2.5rem 2rem; }
+      .tickets-drawer { width: 100vw; max-width: 100vw; padding: 2rem 1.5rem; }
+      .lineup-section { padding: 4rem 2rem 2rem 2rem; }
+      .lineup-container-boundary { display: none; }
+      .lineup-grid::before { display: none; }
+      .lineup-header { flex-direction: column; align-items: flex-start; gap: 1.5rem; margin-bottom: 4rem; }
+      .lineup-header p { text-align: left; }
+      .lineup-card.artist-1, .lineup-card.artist-2, .lineup-card.artist-3 { grid-column: span 12; margin-top: 0 !important; }
+      .artist-1 .lineup-frame, .artist-2 .lineup-frame, .artist-3 .lineup-frame { height: 320px; }
+      .lineup-details h3 { font-size: 1.8rem; }
+      .minimal-footer { padding: 1rem 2rem; flex-direction: column; gap: 1rem; text-align: center; }
+      .btn-fast-pass { width: 100%; }
+      .float-text { font-size: 16vw; }
+      .header-actions { gap: 1rem; }
+      .btn-nav-tickets span.label-text { display: none; }
+
+      .terminal-modal-panel {
+        width: 100vw; height: 100vh; max-height: none; min-width: 0;
+        grid-template-columns: 1fr; overflow-y: auto;
+      }
+      .terminal-left { height: 45vh; padding: 1rem; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.05); }
+      .terminal-right { height: auto; padding: 1.5rem; }
+      .terminal-ghost-header { font-size: 12vw; }
+      .terminal-barcode-strip { display: none; }
+
+      .artist-modal-panel { flex-direction: column; width: 100vw; height: 100vh; max-height: none; transform: translateY(40px); overflow-y: auto; overflow-x: hidden; }
+      .artist-left { width: 100%; height: 40vh; }
+      .artist-left img { width: 100%; clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%); }
+      .artist-right { width: 100%; height: auto; padding: 2rem; }
+      .artist-header-block h2 { font-size: 2.5rem; }
+      .artist-close-btn { left: auto; right: 1.5rem; top: 1.5rem; color: #fff; text-shadow: 0 0 5px #000; }
+      .artist-ghost-name { right: 0; font-size: 20vw; opacity: 0.3; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="boot-screen">
+    <div class="boot-logo">VIBE//TIX</div>
+    <div class="boot-bar-wrap"><div class="boot-bar-fill"></div></div>
+    <div class="boot-lines">
+      <div class="boot-line l1">INITIALIZING TICKET SYSTEMS <span class="ok">[ OK ]</span></div>
+      <div class="boot-line l2">LOADING LIVE CIRCUITS <span class="ok">[ OK ]</span></div>
+      <div class="boot-line l3">AUDIO PERIMETER ACTIVE <span class="ok">[ OK ]</span></div>
+    </div>
+  </div>
+
+  <div id="site-content">
+
+    <div id="custom-cursor"></div>
+    <div class="grain"></div>
+
+    <div class="floating-filter-bg">
+      <div class="float-text ft-1" id="floatTag1">ALL SHOWS</div>
+      <div class="float-text ft-2" id="floatTag2">GLOBAL REALMS</div>
+      <div class="float-text ft-3" id="floatTag3">LIVE CIRCUITS</div>
+    </div>
+
+    <div class="terminal-modal-backdrop" id="terminalModal">
+      <div class="terminal-modal-panel" id="terminalPanel">
+        
+        <div class="terminal-left">
+          <div class="terminal-ghost-header" id="modalGhostHeader">NEON TOUR</div>
+          <div class="terminal-diagram-container" id="modalDiagramContainer"></div>
+          <div class="terminal-coords-bar" id="modalCoordsBar">SYS-OP // 14.5995°N 120.9842°E</div>
+        </div>
+
+        <div class="terminal-right">
+          <button class="terminal-close-btn" onclick="TerminalModal.close()">✕</button>
+          
+          <div class="terminal-meta-block">
+            <div class="terminal-show-title" id="modalShowTitle">NEON AURA TOUR</div>
+            <div class="terminal-show-venue" id="modalShowVenue">Araneta Coliseum — Oct 24, 2026</div>
+          </div>
+
+          <div class="terminal-tiers-list" id="modalTiersList"></div>
+
+          <div class="terminal-barcode-strip"></div>
+
+          <div class="terminal-action-area">
+            <button class="btn-submit" id="modalActionBtn" onclick="TerminalModal.proceedToCheckout()">PROCEED TO CHECKOUT →</button>
+            <div class="terminal-ux-hint" id="modalUXHint">[ ESC ] CLOSE · [ 1-3 ] SELECT · [ ENTER ] CONTINUE</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="artist-modal-backdrop" id="artistModal">
+      <div class="artist-modal-panel" id="artistPanel">
+        <button class="artist-close-btn" onclick="ArtistModal.close()">✕</button>
+        <div class="artist-ghost-name" id="artistGhostName">NAME</div>
+
+        <div class="artist-left">
+          <img src="" id="artistModalImg" alt="Artist">
+        </div>
+
+        <div class="artist-right">
+          <div class="artist-header-block">
+            <h2 id="artistModalName">NAME</h2>
+            <div class="artist-genre" id="artistModalGenre">GENRE</div>
+          </div>
+          <p class="artist-bio" id="artistModalBio">Bio text...</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="vertical-edge-filterbar" id="filterBarContainer">
+      <div class="filter-slider-indicator" id="sliderIndicator"></div>
+      <button class="edge-filter-chip active" data-filter="all">[ ALL ]</button>
+      <button class="edge-filter-chip" data-filter="manila">[ MNL ]</button>
+      <button class="edge-filter-chip" data-filter="tokyo">[ TKY ]</button>
+      <button class="edge-filter-chip" data-filter="seoul">[ SEL ]</button>
+      <button class="edge-filter-chip" data-filter="london">[ LDN ]</button>
+      <button class="edge-filter-chip" data-filter="new-york">[ NYC ]</button>
+      <button class="edge-filter-chip" data-filter="berlin">[ BER ]</button>
+      <button class="edge-filter-chip" data-filter="ibiza">[ IBZ ]</button>
+      <button class="edge-filter-chip" data-filter="amsterdam">[ AMS ]</button>
+      <span class="kb-hint">PRESS 1–9 TO FILTER</span>
+    </div>
+
+    <div class="auth-overlay" id="authOverlay"></div>
+
+    <div class="auth-drawer" id="authDrawer">
+      <div class="auth-header">
+        <h2 id="authTitle">Sign In</h2>
+        <button class="btn-close" id="closeAuth">&times;</button>
+      </div>
+      <div id="drawerDynamicContent"></div>
+    </div>
+
+    <div class="tickets-overlay" id="ticketsOverlay"></div>
+
+    <div class="tickets-drawer" id="ticketsDrawer">
+      <div class="tickets-header">
+        <h2>My Tickets</h2>
+        <button class="btn-close" id="closeTickets">&times;</button>
+      </div>
+      <div class="tickets-subhead">[ ACCESS PASS HISTORY // SYS-OP ]</div>
+      <div class="tickets-list" id="ticketsListContainer"></div>
+    </div>
+
+    <header>
+      <div class="logo" id="siteLogo" data-text="VIBE//TIX">VIBE//TIX</div>
+      <div class="ticker-wrap">
+        <div class="ticker-track">
+          <span>MANILA • TOKYO • SEOUL • LONDON • NEW YORK • BERLIN • IBIZA • AMSTERDAM • MANILA • TOKYO • SEOUL • LONDON • NEW YORK • BERLIN • IBIZA • AMSTERDAM •&nbsp;</span>
+          <span>MANILA • TOKYO • SEOUL • LONDON • NEW YORK • BERLIN • IBIZA • AMSTERDAM • MANILA • TOKYO • SEOUL • LONDON • NEW YORK • BERLIN • IBIZA • AMSTERDAM •&nbsp;</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn-nav-tickets" id="openTickets">
+          <span class="label-text">My Tickets</span>
+          <span class="ticket-count-badge" id="ticketCountBadge" style="display:none;">0</span>
+        </button>
+        <button class="btn-nav-auth" id="openAuth">Sign In</button>
+      </div>
+    </header>
+
+    <section class="hero-view-wrapper">
+      <div class="hero-title-section">
+        <h1>
+          <span class="line-left">Live Is Where</span>
+          <span class="line-right">We Belong.</span>
+        </h1>
+      </div>
+
+      <div class="hero-scatter hs-lime hs-top-left-1">// LIVE CIRCUIT ACTIVE</div>
+      <div class="hero-scatter hs-dim hs-top-left-2">SYS-NODE 0x4F2A</div>
+      <div class="hero-scatter hs-muted hs-top-left-3">LAT 14.5995° N · LNG 120.9842° E</div>
+      <div class="hero-scatter hs-muted hs-top-right-1">VOL.04 // 2026</div>
+      <div class="hero-scatter hs-dim hs-top-right-2">FREQ 440 HZ</div>
+      <div class="hero-scatter hs-dim hs-vert" style="top:50%;left:70px;font-size:8px;letter-spacing:3px;transform:translateY(-50%) rotate(180deg);">AUDIO-098 // CURATION PHASE</div>
+      <div class="hero-scatter hs-muted hs-vert" style="top:50%;right:12px;font-size:8px;letter-spacing:2.5px;transform:translateY(-50%);">IMMERSIVE // LIVE STAGING</div>
+      <div class="hero-scatter hs-dim"   style="top:30%;right:18%;font-size:9px;letter-spacing:2px;">[ ENTRY VECTOR ]</div>
+      <div class="hero-scatter hs-white" style="top:36%;right:14%;font-size:8px;">⬡ 001</div>
+      <div class="hero-scatter hs-lime"  style="bottom:18%;left:6rem;font-size:8px;letter-spacing:3px;">SCANNING PERIMETER...</div>
+      <div class="hero-scatter hs-dim"   style="bottom:15%;left:6rem;font-size:8px;">TICKET SYSTEMS // NOMINAL</div>
+      <div class="hero-scatter hs-muted" style="bottom:32px;left:6rem;font-size:9px;letter-spacing:2px;">REVISION LOG // REL-04.2.1</div>
+      <div class="hero-scatter hs-dim"   style="bottom:18px;left:6rem;font-size:8px;">SIGNAL OUTPUT: STABLE ▊</div>
+      <div class="hero-scatter hs-dim"   style="bottom:32px;right:24px;font-size:9px;">© VIBE SYSTEMS INTL.</div>
+      <div class="hero-scatter hs-muted" style="bottom:18px;right:24px;font-size:8px;letter-spacing:2.5px;">PASS STATUS: OPEN</div>
+      <div class="hero-scatter hs-dim"   style="top:60%;left:48%;font-size:8px;letter-spacing:2px;">[ STANDBY ]</div>
+      <div class="hero-scatter hs-dim"   style="top:68%;left:44%;font-size:8px;">0 1 1 0 1 0 0 1</div>
+    </section>
+
+    <main class="concert-grid" id="concertGridContainer"></main>
+
+    <section class="lineup-section">
+      <div class="lineup-container-boundary"></div>
+      <div class="lineup-header">
+        <h2>HEADLINERS<br>// SPOTLIGHT</h2>
+        <p>Curated sonic architects changing the landscape of audio design this season.</p>
+      </div>
+      <div class="lineup-grid">
+        <div class="lineup-card artist-1">
+          <div class="lineup-frame">
+            <img src="https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80&w=800" alt="Tokyo Cybernet" class="lineup-img">
+          </div>
+          <div class="lineup-details">
+            <div class="meta">
+              <h3>TOKYO CYBERNET</h3>
+              <span class="genre">ELECTRONIC // MODULAR</span>
+            </div>
+            <span class="order-num">[01]</span>
+          </div>
+        </div>
+        <div class="lineup-card artist-2">
+          <div class="lineup-frame">
+            <img src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&q=80&w=800" alt="Static Velvet" class="lineup-img">
+          </div>
+          <div class="lineup-details">
+            <div class="meta">
+              <h3>STATIC VELVET</h3>
+              <span class="genre">POST-PUNK // ALTERNATIVE</span>
+            </div>
+            <span class="order-num">[02]</span>
+          </div>
+        </div>
+        <div class="lineup-card artist-3">
+          <div class="lineup-frame">
+            <img src="https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&q=80&w=1200" alt="Nova Fracture" class="lineup-img">
+          </div>
+          <div class="lineup-details">
+            <div class="meta">
+              <h3>NOVA FRACTURE</h3>
+              <span class="genre">INDUSTRIAL // NOISE ROCK</span>
+            </div>
+            <span class="order-num">[03]</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="minimal-footer">
+      <div class="footer-left">
+        <span class="pulse-indicator"></span>
+        <span class="footer-status" id="footerStatus">SYSTEMS NOMINAL // TICKETING LIVE</span>
+      </div>
+      <div class="footer-right">
+        <button class="btn-fast-pass" id="fastPassBtn">QUICK PASS CHECKOUT</button>
+      </div>
+    </footer>
+
+  </div>
+
+  <script>
+    // =============================================
+    // BOOT SEQUENCE
+    // =============================================
+    window.addEventListener('DOMContentLoaded', () => {
+      const bootScreen = document.getElementById('boot-screen');
+      const siteContent = document.getElementById('site-content');
+
+      setTimeout(() => {
+        bootScreen.classList.add('fade-out');
+        siteContent.classList.add('visible');
+        setTimeout(() => bootScreen.remove(), 650);
+        setTimeout(() => VibeCore.triggerLogoGlitch(), 800);
+      }, 2200);
+    });
+
+    // =============================================
+    // SOUND ENGINE
+    // =============================================
+    const SoundEngine = {
+      ctx: null,
+
+      getCtx() {
+        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        return this.ctx;
+      },
+
+      playClick() {
+        try {
+          const ctx = this.getCtx();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.setValueAtTime(600, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.06);
+          gain.gain.setValueAtTime(0.08, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 0.08);
+        } catch(e) {}
+      },
+
+      playOpen() {
+        try {
+          const ctx = this.getCtx();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(880, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.12);
+          gain.gain.setValueAtTime(0.05, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 0.15);
+        } catch(e) {}
+      },
+
+      playReveal() {
+        try {
+          const ctx = this.getCtx();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(300, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(500, ctx.currentTime + 0.12);
+          gain.gain.setValueAtTime(0.04, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 0.12);
+        } catch(e) {}
+      },
+
+      playSuccess() {
+        try {
+          const ctx = this.getCtx();
+          [440, 550, 660].forEach((freq, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = freq;
+            const t = ctx.currentTime + i * 0.1;
+            gain.gain.setValueAtTime(0.06, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+            osc.start(t);
+            osc.stop(t + 0.2);
+          });
+        } catch(e) {}
+      }
+    };
+
+    // =============================================
+    // COUNTDOWN TIMER UTILITY
+    // =============================================
+    function getCountdown(dateStr) {
+      const target = new Date(dateStr).getTime();
+      const now = Date.now();
+      const diff = target - now;
+      if (diff <= 0) return 'DOORS CLOSED';
+      const d = Math.floor(diff / 86400000);
+      const h = Math.floor((diff % 86400000) / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      return `[ DOORS IN ${d}D ${h}H ${m}M ]`;
+    }
+
+    // =============================================
+    // LIVE FOOTER STATUS ROTATOR
+    // =============================================
+    const FooterStatusRotator = {
+      messages: [
+        'SYSTEMS NOMINAL // TICKETING LIVE',
+        'ARTIST CHECK // SOUNDBOARD ACTIVE',
+        'DOORS OPEN 19:00 // PERIMETER CLEAR',
+        'CROWD DENSITY: HIGH // GATE A OPEN',
+        'SIGNAL OUTPUT: STABLE ▊',
+        'FREQ 440HZ // BROADCAST LIVE',
+        'PASS VERIFICATION: ONLINE',
+        'STAGE CREW // STANDING BY',
+      ],
+      index: 0,
+      el: null,
+      customMessageTimeout: null,
+
+      init() {
+        this.el = document.getElementById('footerStatus');
+        this.startInterval();
+      },
+
+      startInterval() {
+        this.interval = setInterval(() => this.rotate(), 3500);
+      },
+
+      rotate() {
+        if (!this.el) return;
+        this.el.classList.add('fading');
+        setTimeout(() => {
+          this.index = (this.index + 1) % this.messages.length;
+          this.el.textContent = this.messages[this.index];
+          this.el.classList.remove('fading');
+        }, 300);
+      },
+
+      triggerSystemAlert(text) {
+        clearInterval(this.interval);
+        clearTimeout(this.customMessageTimeout);
+        
+        this.el.classList.add('fading');
+        setTimeout(() => {
+          this.el.textContent = text;
+          this.el.classList.remove('fading');
+          this.customMessageTimeout = setTimeout(() => {
+            this.startInterval();
+          }, 4000);
+        }, 300);
+      }
+    };
+
+    // =============================================
+    // FLOATING TEXT CROSSFADE
+    // =============================================
+    function swapFloatText(el, newText, activate) {
+      el.classList.add('swapping');
+      el.removeAttribute('data-active');
+      setTimeout(() => {
+        el.innerText = newText;
+        el.classList.remove('swapping');
+        if (activate) el.setAttribute('data-active', 'true');
+      }, 300);
+    }
+
+    // =============================================
+    // ARTIST MODAL CONTROLLER
+    // =============================================
+    const ArtistModal = {
+      backdrop: null,
+      panel: null,
+      data: {
+        'artist-1': {
+          name: 'TOKYO CYBERNET',
+          genre: 'ELECTRONIC // MODULAR',
+          img: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80&w=800',
+          bio: 'Modular synthesis algorithms pushed beyond operational limits. Tokyo Cybernet redefines structural soundscapes through algorithmic sequence disruption and live-wire hardware patching. Expect heavy sub-bass frequencies and erratic tempo anomalies.',
+          warning: '// OVERRIDE PROTOCOL ENGAGED.'
+        },
+        'artist-2': {
+          name: 'STATIC VELVET',
+          genre: 'POST-PUNK // ALTERNATIVE',
+          img: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&q=80&w=800',
+          bio: 'Analog degradation meets overdrive distortion. Static Velvet operates in the dead-zones of modern audio, utilizing vintage amplification to generate deliberate harmonic decay. A visceral exploration of feedback loops and raw, unquantized rhythm structures.',
+          warning: '// SIGNAL WARNING: HIGH DISTORTION.'
+        },
+        'artist-3': {
+          name: 'NOVA FRACTURE',
+          genre: 'INDUSTRIAL // NOISE ROCK',
+          img: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&q=80&w=1200',
+          bio: 'Sonic architecture designed to dismantle itself. Nova Fracture synthesizes mechanical noise with shattered vocal processors, building a wall of sound that tests structural venue acoustics. Not a performance, but a controlled demolition of the audio spectrum.',
+          warning: '// PERIMETER EVACUATION RECOMMENDED.'
+        }
+      },
+
+      init() {
+        this.backdrop = document.getElementById('artistModal');
+        this.panel = document.getElementById('artistPanel');
+
+        document.querySelectorAll('.lineup-card').forEach(card => {
+          card.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = card.classList.contains('artist-1') ? 'artist-1' :
+                       card.classList.contains('artist-2') ? 'artist-2' : 'artist-3';
+            this.open(id);
+          });
+        });
+
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && this.backdrop && this.backdrop.classList.contains('active')) {
+            this.close();
+          }
+        });
+      },
+
+      open(artistId) {
+        const info = this.data[artistId];
+        document.getElementById('artistModalImg').src = info.img;
+        document.getElementById('artistModalName').textContent = info.name;
+        document.getElementById('artistGhostName').textContent = info.name;
+        document.getElementById('artistModalGenre').textContent = info.genre;
+        document.getElementById('artistModalBio').innerHTML = `<span class="artist-bio-prefix">SYS-LOG ></span> ${info.bio} <br><br><span style="color:var(--accent-color)">${info.warning}</span>`;
+
+        document.body.classList.add('modal-open');
+        this.backdrop.style.display = 'flex';
+        void this.backdrop.offsetWidth; 
+        this.backdrop.classList.add('active');
+        SoundEngine.playReveal();
+
+        setTimeout(() => VibeCore.refreshCursorTracking(), 150);
+      },
+
+      close() {
+        this.backdrop.classList.remove('active');
+        document.body.classList.remove('modal-open');
+        setTimeout(() => {
+          this.backdrop.style.display = 'none';
+        }, 400);
+      }
+    };
+
+    // =============================================
+    // TERMINAL OVERLAY MODAL CONTROLLER (SEAT GRID)
+    // =============================================
+    const TerminalModal = {
+      backdrop: null,
+      panel: null,
+      activeShow: null,
+      selectedTier: 'GA',
+      demandInterval: null,
+      viewMode: 'zone', 
+      selectedSeats: [], 
+      seatsDatabase: {}, 
+      seatsInventory: { 'SVIP': 0, 'VIP': 0, 'GA': 0 },
+
+      init() {
+        this.backdrop = document.getElementById('terminalModal');
+        this.panel = document.getElementById('terminalPanel');
+        this.bindEvents();
+      },
+
+      getVenueLayoutType(venueName) {
+        const lower = venueName.toLowerCase();
+        if (lower.includes('stadium') || lower.includes('dome')) return 'stadium';
+        if (lower.includes('theater') || lower.includes('hall')) return 'theater';
+        if (lower.includes('coliseum') || lower.includes('arena') || lower.includes('gymnastics') || lower.includes('ziggo')) return 'arena';
+        if (lower.includes('amphitheater') || lower.includes('beach')) return 'amphitheater';
+        if (lower.includes('field') || lower.includes('track')) return 'field';
+        if (lower.includes('vault') || lower.includes('tresor')) return 'vault';
+        return 'warehouse'; 
+      },
+
+      open(show) {
+        this.activeShow = show;
+        this.selectedTier = 'GA'; 
+        this.viewMode = 'zone';
+        this.selectedSeats = [];
+        
+        document.getElementById('modalShowTitle').textContent = show.title;
+        document.getElementById('modalShowVenue').textContent = show.venue;
+        
+        const ghost = document.getElementById('modalGhostHeader');
+        ghost.textContent = show.title;
+        ghost.style.fontSize = show.title.length > 15 ? '4vw' : '5.5vw';
+
+        const coordsBar = document.getElementById('modalCoordsBar');
+        if (show.tags.includes('manila')) coordsBar.textContent = "SYS-OP // 14.5995°N 120.9842°E";
+        else if (show.tags.includes('tokyo')) coordsBar.textContent = "SYS-OP // 35.6764°N 139.6500°E";
+        else if (show.tags.includes('seoul')) coordsBar.textContent = "SYS-OP // 37.5665°N 126.9780°E";
+        else if (show.tags.includes('london')) coordsBar.textContent = "SYS-OP // 51.5074°N 0.1278°W";
+        else coordsBar.textContent = "SYS-OP // CLOCK NODE ENGAGED";
+
+        this.generateMockSeatsDatabase();
+
+        this.renderSVGDiagram(show);
+        this.renderTiers(show);
+        this.updateActionStateUI();
+
+        document.body.classList.add('modal-open');
+        this.backdrop.style.display = 'flex';
+        void this.backdrop.offsetWidth; 
+        this.backdrop.classList.add('active');
+        SoundEngine.playReveal();
+
+        setTimeout(() => VibeCore.refreshCursorTracking(), 150);
+        this.startDemandSimulation();
+      },
+
+      generateMockSeatsDatabase() {
+        const tierList = ['SVIP', 'VIP', 'GA'];
+        const layoutType = this.getVenueLayoutType(this.activeShow.venue);
+        
+        this.seatsDatabase = {};
+        
+        tierList.forEach(tier => {
+          this.seatsDatabase[tier] = [];
+          let rowsCount = tier === 'SVIP' ? 3 : (tier === 'VIP' ? 5 : 7);
+          let seatsCount = tier === 'SVIP' ? 6 : (tier === 'VIP' ? 10 : 12);
+          
+          if (layoutType === 'arena') {
+            rowsCount = tier === 'SVIP' ? 3 : (tier === 'VIP' ? 4 : 6);
+            seatsCount = tier === 'SVIP' ? 8 : (tier === 'VIP' ? 14 : 18);
+          } else if (layoutType === 'amphitheater') {
+            rowsCount = tier === 'SVIP' ? 2 : (tier === 'VIP' ? 5 : 6);
+            seatsCount = tier === 'SVIP' ? 10 : (tier === 'VIP' ? 12 : 16);
+          } else if (layoutType === 'stadium') {
+            rowsCount = tier === 'SVIP' ? 2 : (tier === 'VIP' ? 4 : 6);
+            seatsCount = tier === 'SVIP' ? 12 : (tier === 'VIP' ? 16 : 20);
+          } else if (layoutType === 'theater') {
+            rowsCount = tier === 'SVIP' ? 3 : (tier === 'VIP' ? 4 : 5);
+            seatsCount = tier === 'SVIP' ? 8 : (tier === 'VIP' ? 12 : 14);
+          } else if (layoutType === 'field') {
+            rowsCount = tier === 'SVIP' ? 2 : (tier === 'VIP' ? 3 : 5);
+            seatsCount = tier === 'SVIP' ? 14 : (tier === 'VIP' ? 18 : 22);
+          } else if (layoutType === 'vault') {
+            rowsCount = tier === 'SVIP' ? 2 : (tier === 'VIP' ? 6 : 6);
+            seatsCount = tier === 'SVIP' ? 10 : (tier === 'VIP' ? 5 : 5);
+          } else if (layoutType === 'warehouse') {
+            rowsCount = tier === 'SVIP' ? 3 : (tier === 'VIP' ? 5 : 10);
+            seatsCount = tier === 'SVIP' ? 6 : (tier === 'VIP' ? 10 : 6);
+          }
+
+          let remaining = 0;
+          for (let r = 0; r < rowsCount; r++) {
+            const rowLabel = String.fromCharCode(65 + r);
+            for (let s = 1; s <= seatsCount; s++) {
+              const occupied = Math.random() < 0.45;
+              if (!occupied) remaining++;
+              this.seatsDatabase[tier].push({
+                id: `${tier}-${rowLabel}-${s}`,
+                row: rowLabel,
+                num: s,
+                occupied: occupied
+              });
+            }
+          }
+          this.seatsInventory[tier] = remaining;
+        });
+      },
+
+      close() {
+        this.backdrop.classList.remove('active');
+        document.body.classList.remove('modal-open');
+        clearInterval(this.demandInterval);
+
+        setTimeout(() => {
+          this.backdrop.style.display = 'none';
+        }, 300);
+      },
+
+      renderSVGDiagram(show) {
+        const container = document.getElementById('modalDiagramContainer');
+        if (this.viewMode === 'seats') {
+          this.renderSeatGridMatrix(container);
+          return;
+        }
+
+        let internalMapHTML = '';
+        const layoutType = this.getVenueLayoutType(show.venue);
+
+        if (layoutType === 'arena') {
+          internalMapHTML = `
+            <circle cx="140" cy="100" r="85" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1" stroke-dasharray="2,2"/>
+            <circle cx="140" cy="100" r="22" fill="#16161A" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+            <text x="140" y="103" text-anchor="middle" font-size="6" font-weight="800" fill="rgba(255,255,255,0.5)" letter-spacing="0.5">CTR STAGE</text>
+            
+            <circle cx="140" cy="100" r="42" id="svg-zone-svip" class="svg-zone zone-svip" fill="#CCFF00" fill-opacity="0.03" stroke="rgba(204,255,0,0.4)" stroke-width="0.8" stroke-dasharray="3,1"/>
+            <text x="140" y="72" text-anchor="middle" font-size="5.5" font-weight="500" fill="rgba(255,255,255,0.4)" pointer-events="none">SVIP RING</text>
+            
+            <path d="M 75 75 A 65 65 0 1 1 205 75 M 205 125 A 65 65 0 0 1 75 125" id="svg-zone-vip" class="svg-zone zone-vip" fill="#FFB74D" fill-opacity="0.02" stroke="rgba(255,183,77,0.35)" stroke-width="0.8"/>
+            <text x="140" y="48" text-anchor="middle" font-size="5.5" font-weight="500" fill="rgba(255,255,255,0.4)" pointer-events="none">VIP LOWER BOWL</text>
+            
+            <path d="M 50 50 A 92 92 0 1 1 230 50 M 230 150 A 92 92 0 0 1 50 150" id="svg-zone-ga" class="svg-zone zone-ga" fill="url(#modal-dots)" fill-opacity="0.5" stroke="rgba(255,255,255,0.15)" stroke-width="0.8"/>
+            <text x="140" y="24" text-anchor="middle" font-size="5.5" font-weight="500" fill="rgba(255,255,255,0.3)" pointer-events="none">GA TIERED STANDS</text>
+          `;
+        } else if (layoutType === 'amphitheater') {
+          internalMapHTML = `
+            <path d="M 55 25 L 225 25 L 205 40 L 75 40 Z" fill="#18181A" stroke="rgba(255,255,255,0.3)" stroke-width="0.8"/>
+            <text x="140" y="34" text-anchor="middle" font-size="6" font-weight="700" fill="rgba(255,255,255,0.5)">FRONT PROSCENIUM</text>
+            
+            <path d="M 80 48 A 60 55 0 0 1 200 48 L 180 75 A 35 30 0 0 0 100 75 Z" id="svg-zone-svip" class="svg-zone zone-svip" fill="#CCFF00" fill-opacity="0.04" stroke="rgba(204,255,0,0.4)" stroke-width="0.8"/>
+            <text x="140" y="62" text-anchor="middle" font-size="5.5" font-weight="500" fill="rgba(255,255,255,0.6)" pointer-events="none">SVIP ORCHESTRA</text>
+
+            <path d="M 60 44 A 85 75 0 0 1 220 44 L 195 72 A 62 55 0 0 0 85 72 Z M 65 82 A 80 72 0 0 1 215 82 L 190 112 A 58 50 0 0 0 90 112 Z" id="svg-zone-vip" class="svg-zone zone-vip" fill="#FFB74D" fill-opacity="0.03" stroke="rgba(255,183,77,0.35)" stroke-width="0.8"/>
+            <text x="140" y="100" text-anchor="middle" font-size="5.5" font-weight="500" fill="rgba(255,255,255,0.5)" pointer-events="none">VIP MEZZANINE ARRAYS</text>
+
+            <path d="M 35 36 A 110 100 0 0 1 245 36 L 222 66 A 88 80 0 0 0 58 66 Z M 40 120 A 105 95 0 0 1 240 120 L 210 152 A 78 70 0 0 0 70 152 Z" id="svg-zone-ga" class="svg-zone zone-ga" fill="url(#modal-dots)" fill-opacity="0.6" stroke="rgba(255,255,255,0.18)" stroke-width="0.8"/>
+            <text x="140" y="174" text-anchor="middle" font-size="5.5" font-weight="500" fill="rgba(255,255,255,0.35)" pointer-events="none">GA OPEN TERRACE</text>
+          `;
+        } else if (layoutType === 'stadium') {
+          internalMapHTML = `
+            <ellipse cx="140" cy="100" rx="20" ry="14" fill="#151518" stroke="rgba(255,255,255,0.4)" stroke-width="1"/>
+            <text x="140" y="102" text-anchor="middle" font-size="5.5" font-weight="800" fill="var(--accent-color)">360° PIT</text>
+            
+            <ellipse cx="140" cy="100" rx="48" ry="32" id="svg-zone-svip" class="svg-zone zone-svip" fill="#CCFF00" fill-opacity="0.02" stroke="rgba(204,255,0,0.5)" stroke-width="0.8" stroke-dasharray="2,2"/>
+            <text x="140" y="78" text-anchor="middle" font-size="5" fill="rgba(255,255,255,0.4)" pointer-events="none">SVIP COAT TRACK</text>
+            
+            <ellipse cx="140" cy="100" rx="80" ry="56" id="svg-zone-vip" class="svg-zone zone-vip" fill="#FFB74D" fill-opacity="0.02" stroke="rgba(255,183,77,0.35)" stroke-width="0.8"/>
+            <text x="140" y="55" text-anchor="middle" font-size="5" fill="rgba(255,255,255,0.4)" pointer-events="none">VIP FIELD STRETCH</text>
+            
+            <path d="M 25 100 A 115 85 0 1 1 255 100 A 115 85 0 1 1 25 100 Z M 50 100 A 90 65 0 1 0 230 100 A 90 65 0 1 0 50 100 Z" id="svg-zone-ga" class="svg-zone zone-ga" fill="url(#modal-dots)" fill-opacity="0.5" stroke="rgba(255,255,255,0.15)" stroke-width="0.8"/>
+            <text x="140" y="24" text-anchor="middle" font-size="5.5" font-weight="500" fill="rgba(255,255,255,0.3)" pointer-events="none">GA STADIUM TIER BOWL</text>
+          `;
+        } else if (layoutType === 'theater') {
+          internalMapHTML = `
+            <rect x="75" y="12" width="130" height="15" fill="#1C1C1F" stroke="rgba(255,255,255,0.2)" stroke-width="0.8"/>
+            <text x="140" y="21" text-anchor="middle" font-size="6" font-weight="700" fill="rgba(255,255,255,0.4)">THEATER MAIN STAGE</text>
+            
+            <path d="M 60 36 L 220 36 L 200 66 L 80 66 Z" id="svg-zone-svip" class="svg-zone zone-svip" fill="#CCFF00" fill-opacity="0.04" stroke="rgba(204,255,0,0.4)" stroke-width="0.8"/>
+            <text x="140" y="50" text-anchor="middle" font-size="5" fill="rgba(255,255,255,0.5)" pointer-events="none">SVIP ORCHESTRA STALLS</text>
+            
+            <path d="M 45 74 L 235 74 L 215 114 L 65 114 Z" id="svg-zone-vip" class="svg-zone zone-vip" fill="#FFB74D" fill-opacity="0.03" stroke="rgba(255,183,77,0.35)" stroke-width="0.8"/>
+            <text x="140" y="94" text-anchor="middle" font-size="5" fill="rgba(255,255,255,0.5)" pointer-events="none">VIP MEZZANINE BALCONY</text>
+            
+            <path d="M 30 122 L 250 122 L 230 178 L 50 178 Z" id="svg-zone-ga" class="svg-zone zone-ga" fill="url(#modal-dots)" fill-opacity="0.6" stroke="rgba(255,255,255,0.16)" stroke-width="0.8"/>
+            <text x="140" y="150" text-anchor="middle" font-size="5.5" font-weight="500" fill="rgba(255,255,255,0.35)" pointer-events="none">GA UPPER DECK LOGE</text>
+          `;
+        } else if (layoutType === 'field') {
+          internalMapHTML = `
+            <polygon points="90,14 190,14 210,32 70,32" fill="#1C1C1F" stroke="rgba(255,255,255,0.25)" stroke-width="0.8"/>
+            <text x="140" y="24" text-anchor="middle" font-size="5.5" font-weight="700" fill="rgba(255,255,255,0.4)">OUTDOOR FESTIVAL STAGE</text>
+            
+            <rect id="svg-zone-svip" class="svg-zone zone-svip" x="50" y="40" width="180" height="30" rx="3" fill="#CCFF00" fill-opacity="0.03" stroke="rgba(204,255,0,0.45)" stroke-width="0.8"/>
+            <text x="140" y="58" text-anchor="middle" font-size="5" fill="rgba(255,255,255,0.5)" pointer-events="none">SVIP FRONT BARRICADE</text>
+            
+            <rect id="svg-zone-vip" class="svg-zone zone-vip" x="35" y="78" width="210" height="42" rx="4" fill="#FFB74D" fill-opacity="0.02" stroke="rgba(255,183,77,0.35)" stroke-width="0.8"/>
+            <text x="140" y="101" text-anchor="middle" font-size="5" fill="rgba(255,255,255,0.5)" pointer-events="none">VIP MIDDLE FIELD ASSIGN</text>
+            
+            <rect id="svg-zone-ga" class="svg-zone zone-ga" x="20" y="128" width="240" height="56" rx="2" fill="url(#modal-dots)" fill-opacity="0.5" stroke="rgba(255,255,255,0.15)" stroke-width="0.8"/>
+            <text x="140" y="160" text-anchor="middle" font-size="5.5" font-weight="500" fill="rgba(255,255,255,0.3)" pointer-events="none">GA FESTIVAL LAWN FIELD</text>
+          `;
+        } else if (layoutType === 'vault') {
+          internalMapHTML = `
+            <rect x="105" y="12" width="70" height="16" fill="#111" stroke="rgba(255,255,255,0.3)" stroke-width="0.8"/>
+            <text x="140" y="22" text-anchor="middle" font-size="5" font-weight="800" fill="var(--accent-color)">SOUND BOOTH DETECTOR</text>
+            
+            <rect id="svg-zone-svip" class="svg-zone zone-svip" x="30" y="36" width="220" height="34" rx="1" fill="#CCFF00" fill-opacity="0.04" stroke="rgba(204,255,0,0.4)" stroke-width="0.8"/>
+            <text x="140" y="55" text-anchor="middle" font-size="5" fill="rgba(255,255,255,0.5)" pointer-events="none">SVIP INDUSTRIAL INNER CORE</text>
+            
+            <rect id="svg-zone-vip" class="svg-zone zone-vip" x="30" y="78" width="105" height="100" rx="1" fill="#FFB74D" fill-opacity="0.02" stroke="rgba(255,183,77,0.35)" stroke-width="0.8"/>
+            <text x="82" y="130" text-anchor="middle" font-size="4.5" fill="rgba(255,255,255,0.4)" pointer-events="none">VIP FLANK NORTH</text>
+            
+            <rect id="svg-zone-ga" class="svg-zone zone-ga" x="145" y="78" width="105" height="100" rx="1" fill="url(#modal-dots)" fill-opacity="0.6" stroke="rgba(255,255,255,0.18)" stroke-width="0.8"/>
+            <text x="197" y="130" text-anchor="middle" font-size="4.5" fill="rgba(255,255,255,0.4)" pointer-events="none">GA FLANK SOUTH CONCRETE</text>
+          `;
+        } else {
+          internalMapHTML = `
+            <rect x="85" y="14" width="110" height="18" fill="#18181A" stroke="rgba(255,255,255,0.2)" stroke-width="0.8"/>
+            <text x="140" y="25" text-anchor="middle" font-size="6" font-weight="700" fill="rgba(255,255,255,0.4)">ENDSTAGE PLATFORM</text>
+            
+            <rect id="svg-zone-svip" class="svg-zone zone-svip" x="35" y="44" width="65" height="50" rx="2" fill="#CCFF00" fill-opacity="0.04" stroke="rgba(204,255,0,0.4)" stroke-width="0.8"/>
+            <rect id="svg-zone-svip-2" class="svg-zone zone-svip" x="180" y="44" width="65" height="50" rx="2" fill="#CCFF00" fill-opacity="0.04" stroke="rgba(204,255,0,0.4)" stroke-width="0.8"/>
+            <text x="67" y="72" text-anchor="middle" font-size="5" fill="rgba(255,255,255,0.4)" pointer-events="none">SVIP WING A</text>
+            <text x="212" y="72" text-anchor="middle" font-size="5" fill="rgba(255,255,255,0.4)" pointer-events="none">SVIP WING B</text>
+
+            <rect id="svg-zone-vip" class="svg-zone zone-vip" x="35" y="104" width="65" height="74" rx="2" fill="#FFB74D" fill-opacity="0.03" stroke="rgba(255,183,77,0.35)" stroke-width="0.8"/>
+            <rect id="svg-zone-vip-2" class="svg-zone zone-vip" x="180" y="104" width="65" height="74" rx="2" fill="#FFB74D" fill-opacity="0.03" stroke="rgba(255,183,77,0.35)" stroke-width="0.8"/>
+            <text x="67" y="144" text-anchor="middle" font-size="5" fill="rgba(255,255,255,0.4)" pointer-events="none">VIP FLANK L</text>
+            <text x="212" y="144" text-anchor="middle" font-size="5" fill="rgba(255,255,255,0.4)" pointer-events="none">VIP FLANK R</text>
+
+            <rect id="svg-zone-ga" class="svg-zone zone-ga" x="108" y="44" width="64" height="134" rx="1" fill="url(#modal-dots)" fill-opacity="0.6" stroke="rgba(255,255,255,0.18)" stroke-width="0.8"/>
+            <text x="140" y="114" text-anchor="middle" font-size="5.5" font-weight="500" fill="rgba(255,255,255,0.4)" pointer-events="none" writing-mode="vertical-rl">GA INDUSTRIAL CONCOURSE</text>
+          `;
+        }
+
+        container.innerHTML = `
+          <svg viewBox="0 0 280 200" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="modal-dots" width="6" height="6" patternUnits="userSpaceOnUse">
+                <circle cx="2" cy="2" r="0.6" fill="rgba(255,255,255,0.2)"/>
+              </pattern>
+            </defs>
+            <rect x="10" y="8" width="260" height="184" rx="4" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+            ${internalMapHTML}
+          </svg>
+        `;
+
+        const attachZoneEvents = (idSelector, tierKey) => {
+          const el = document.getElementById(idSelector);
+          if (!el) return;
+          el.addEventListener('mouseenter', () => this.highlightZone(tierKey.toLowerCase()));
+          el.addEventListener('mouseleave', () => this.syncZoneHighlightToSelection());
+          el.addEventListener('click', () => this.transitionToSeatGrid(tierKey));
+        };
+
+        attachZoneEvents('svg-zone-svip', 'SVIP');
+        attachZoneEvents('svg-zone-svip-2', 'SVIP');
+        attachZoneEvents('svg-zone-vip', 'VIP');
+        attachZoneEvents('svg-zone-vip-2', 'VIP');
+        attachZoneEvents('svg-zone-ga', 'GA');
+
+        this.syncZoneHighlightToSelection();
+      },
+
+      renderSeatGridMatrix(container) {
+        const tier = this.selectedTier;
+        const seats = this.seatsDatabase[tier];
+        const layoutType = this.getVenueLayoutType(this.activeShow.venue);
+        
+        let colorTheme = '#CCFF00';
+        if (tier === 'VIP') colorTheme = '#FFB74D';
+        if (tier === 'GA') colorTheme = '#FFFFFF';
+
+        const rowsMap = {};
+        seats.forEach(s => {
+          if (!rowsMap[s.row]) rowsMap[s.row] = [];
+          rowsMap[s.row].push(s);
+        });
+
+        const sortedRows = Object.keys(rowsMap).sort();
+        let svgContent = '';
+
+        const isSeatSelected = (id) => this.selectedSeats.some(s => s.id === id);
+        const seatCircle = (x, y, seat) => {
+          let seatClass = 'svg-seat';
+          if (seat.occupied) seatClass += ' seat-occupied';
+          if (isSeatSelected(seat.id)) seatClass += ' seat-selected';
+          return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.5"
+            class="${seatClass}" id="circle-${seat.id}"
+            fill="${seat.occupied ? '#222224' : colorTheme}"
+            fill-opacity="${isSeatSelected(seat.id) ? '1' : '0.3'}"
+            stroke="${colorTheme}" stroke-width="0.6" data-id="${seat.id}"
+          />`;
+        };
+
+        if (layoutType === 'arena' || layoutType === 'stadium') {
+          // TRUE IN-THE-ROUND: Tightly packed concentric rings around a center stage
+          const isStadium = layoutType === 'stadium';
+          const center = 140;
+          const stageR = isStadium ? 18 : 22;
+          
+          const innerR = stageR + 10;
+          const outerR = 84;
+
+          svgContent += `
+            <circle cx="${center}" cy="100" r="${stageR}" fill="#111" stroke="rgba(255,255,255,0.15)" stroke-width="0.8"/>
+            <text x="${center}" y="102" text-anchor="middle" font-size="5" fill="rgba(255,255,255,0.35)">${isStadium ? '360° PIT' : 'CENTER STAGE'}</text>
+          `;
+
+          sortedRows.forEach((rowKey, rowIndex) => {
+            const t = sortedRows.length > 1 ? rowIndex / (sortedRows.length - 1) : 0;
+            const radius = innerR + t * (outerR - innerR);
+            const rowSeats = rowsMap[rowKey];
+            
+            svgContent += `<circle cx="${center}" cy="100" r="${radius}" fill="none" stroke="rgba(255,255,255,0.02)" stroke-width="0.5"/>`;
+
+            rowSeats.forEach((seat, seatIndex) => {
+              const angle = (seatIndex / rowSeats.length) * Math.PI * 2 - Math.PI / 2;
+              
+              const x = center + Math.cos(angle) * radius;
+              const y = 100 + Math.sin(angle) * radius;
+              
+              svgContent += seatCircle(x, y, seat);
+            });
+          });
+
+        } else if (layoutType === 'amphitheater' || layoutType === 'theater') {
+          const innerR = layoutType === 'theater' ? 40 : 42;
+          const outerR = layoutType === 'theater' ? 118 : 128;
+          const verticalStart = layoutType === 'theater' ? 34 : 18;
+          const minAngle = Math.PI * 0.20;
+          const maxAngle = Math.PI * 0.80;
+
+          svgContent += `
+            <path d="M 100 12 L 180 12 L 165 22 L 115 22 Z" fill="#16161A" stroke="rgba(255,255,255,0.15)" stroke-width="0.8"/>
+            <text x="140" y="19" text-anchor="middle" font-size="5" fill="rgba(255,255,255,0.3)">STAGE FRONT</text>
+          `;
+
+          sortedRows.forEach((rowKey, rowIndex) => {
+            const t = sortedRows.length > 1 ? rowIndex / (sortedRows.length - 1) : 0;
+            const radius = innerR + t * (outerR - innerR);
+            const rowSeats = rowsMap[rowKey];
+
+            rowSeats.forEach((seat, seatIndex) => {
+              const angle = rowSeats.length > 1
+                ? minAngle + (seatIndex / (rowSeats.length - 1)) * (maxAngle - minAngle)
+                : (minAngle + maxAngle) / 2;
+              const x = 140 + Math.cos(angle) * radius;
+              const y = verticalStart + Math.sin(angle) * radius * 0.62;
+              svgContent += seatCircle(x, y, seat);
+            });
+          });
+
+        } else if (layoutType === 'field') {
+          const bandBoxes = {
+            'SVIP': { top: 42, bottom: 68,  padX: 60 },
+            'VIP':  { top: 80, bottom: 118, padX: 40 },
+            'GA':   { top: 130, bottom: 182, padX: 22 }
+          };
+          const box = bandBoxes[tier];
+
+          svgContent += `
+            <polygon points="90,14 190,14 210,32 70,32" fill="#1C1C1F" stroke="rgba(255,255,255,0.25)" stroke-width="0.8"/>
+            <text x="140" y="24" text-anchor="middle" font-size="5" fill="rgba(255,255,255,0.35)">FESTIVAL STAGE</text>
+          `;
+
+          sortedRows.forEach((rowKey, rowIndex) => {
+            const rowSeats = rowsMap[rowKey];
+            const y = sortedRows.length > 1
+              ? box.top + (rowIndex / (sortedRows.length - 1)) * (box.bottom - box.top)
+              : (box.top + box.bottom) / 2;
+            const usableWidth = 280 - box.padX * 2;
+
+            rowSeats.forEach((seat, seatIndex) => {
+              const x = rowSeats.length > 1
+                ? box.padX + (seatIndex / (rowSeats.length - 1)) * usableWidth
+                : 140;
+              svgContent += seatCircle(x, y, seat);
+            });
+          });
+
+        } else if (layoutType === 'vault') {
+          if (tier === 'SVIP') {
+            const box = { top: 40, bottom: 64, padX: 45 };
+            sortedRows.forEach((rowKey, rowIndex) => {
+              const rowSeats = rowsMap[rowKey];
+              const y = sortedRows.length > 1
+                ? box.top + (rowIndex / (sortedRows.length - 1)) * (box.bottom - box.top)
+                : (box.top + box.bottom) / 2;
+              const usableWidth = 280 - box.padX * 2;
+              rowSeats.forEach((seat, seatIndex) => {
+                const x = rowSeats.length > 1
+                  ? box.padX + (seatIndex / (rowSeats.length - 1)) * usableWidth
+                  : 140;
+                svgContent += seatCircle(x, y, seat);
+              });
+            });
+          } else {
+            const box = tier === 'VIP'
+              ? { x: 30, y: 78, w: 105, h: 100 }
+              : { x: 145, y: 78, w: 105, h: 100 };
+            const pad = 14;
+            sortedRows.forEach((rowKey, rowIndex) => {
+              const rowSeats = rowsMap[rowKey];
+              const yy = sortedRows.length > 1
+                ? box.y + pad + (rowIndex / (sortedRows.length - 1)) * (box.h - pad * 2)
+                : box.y + box.h / 2;
+              rowSeats.forEach((seat, seatIndex) => {
+                const xx = rowSeats.length > 1
+                  ? box.x + pad + (seatIndex / (rowSeats.length - 1)) * (box.w - pad * 2)
+                  : box.x + box.w / 2;
+                svgContent += seatCircle(xx, yy, seat);
+              });
+            });
+          }
+          svgContent += `
+            <rect x="105" y="12" width="70" height="16" fill="#111" stroke="rgba(255,255,255,0.3)" stroke-width="0.8"/>
+            <text x="140" y="22" text-anchor="middle" font-size="5" fill="var(--accent-color)">SOUND BOOTH</text>
+          `;
+
+        } else {
+          svgContent += `
+            <rect x="85" y="14" width="110" height="18" fill="#18181A" stroke="rgba(255,255,255,0.2)" stroke-width="0.8"/>
+            <text x="140" y="25" text-anchor="middle" font-size="5.5" fill="rgba(255,255,255,0.35)">ENDSTAGE PLATFORM</text>
+          `;
+
+          if (tier === 'GA') {
+            const box = { x: 108, y: 44, w: 64, h: 134 };
+            const pad = 8;
+            sortedRows.forEach((rowKey, rowIndex) => {
+              const rowSeats = rowsMap[rowKey];
+              const yy = sortedRows.length > 1
+                ? box.y + pad + (rowIndex / (sortedRows.length - 1)) * (box.h - pad * 2)
+                : box.y + box.h / 2;
+              rowSeats.forEach((seat, seatIndex) => {
+                const xx = rowSeats.length > 1
+                  ? box.x + pad + (seatIndex / (rowSeats.length - 1)) * (box.w - pad * 2)
+                  : box.x + box.w / 2;
+                svgContent += seatCircle(xx, yy, seat);
+              });
+            });
+          } else {
+            const wingBox = tier === 'SVIP'
+              ? { left: { x: 35, y: 44, w: 65, h: 50 }, right: { x: 180, y: 44, w: 65, h: 50 } }
+              : { left: { x: 35, y: 104, w: 65, h: 74 }, right: { x: 180, y: 104, w: 65, h: 74 } };
+            const pad = 8;
+
+            sortedRows.forEach((rowKey, rowIndex) => {
+              const rowSeats = rowsMap[rowKey];
+              const half = Math.ceil(rowSeats.length / 2);
+              const leftSeats = rowSeats.slice(0, half);
+              const rightSeats = rowSeats.slice(half);
+
+              [ [leftSeats, wingBox.left], [rightSeats, wingBox.right] ].forEach(([seatGroup, box]) => {
+                const yy = sortedRows.length > 1
+                  ? box.y + pad + (rowIndex / (sortedRows.length - 1)) * (box.h - pad * 2)
+                  : box.y + box.h / 2;
+                seatGroup.forEach((seat, seatIndex) => {
+                  const xx = seatGroup.length > 1
+                    ? box.x + pad + (seatIndex / (seatGroup.length - 1)) * (box.w - pad * 2)
+                    : box.x + box.w / 2;
+                  svgContent += seatCircle(xx, yy, seat);
+                });
+              });
+            });
+          }
+        }
+
+        container.innerHTML = `
+          <svg viewBox="0 0 280 200" xmlns="http://www.w3.org/2000/svg" id="modalSeatGridSVG">
+            <rect x="10" y="8" width="260" height="184" rx="4" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+            ${svgContent}
+          </svg>
+        `;
+
+        container.querySelectorAll('.svg-seat:not(.seat-occupied)').forEach(circle => {
+          circle.addEventListener('click', () => {
+            this.toggleSeatSelection(circle.getAttribute('data-id'));
+          });
+        });
+      },
+
+      transitionToSeatGrid(tier) {
+        this.selectedTier = tier;
+        this.viewMode = 'seats';
+        SoundEngine.playOpen();
+        this.renderSVGDiagram(this.activeShow);
+        this.renderTiers(this.activeShow);
+        this.updateActionStateUI();
+        VibeCore.refreshCursorTracking();
+      },
+
+      toggleSeatSelection(seatId) {
+        const tier = this.selectedTier;
+        const seatObj = this.seatsDatabase[tier].find(s => s.id === seatId);
+        if (!seatObj || seatObj.occupied) return;
+
+        const index = this.selectedSeats.findIndex(s => s.id === seatId);
+        
+        if (index > -1) {
+          this.selectedSeats.splice(index, 1);
+          SoundEngine.playClick();
+        } else {
+          if (this.selectedSeats.length >= 4) {
+            FooterStatusRotator.triggerSystemAlert("TRANSACTION LIMIT REACHED // Max 4 Seats Per Curation");
+            return;
+          }
+          const seatPrice = this.getTierSeatPrice(tier);
+          this.selectedSeats.push({
+            id: seatId,
+            row: seatObj.row,
+            num: seatObj.num,
+            tier: tier,
+            price: seatPrice
+          });
+          SoundEngine.playClick();
+        }
+
+        this.renderSVGDiagram(this.activeShow);
+        this.renderTiers(this.activeShow);
+        this.updateActionStateUI();
+      },
+
+      getTierSeatPrice(tier) {
+        const show = this.activeShow;
+        const base = show.priceNum;
+        let currencySign = '₱';
+        if (show.tags.includes('tokyo')) currencySign = '¥';
+        else if (show.tags.includes('seoul')) currencySign = '₩';
+        else if (show.tags.includes('london')) currencySign = '£';
+        else if (show.tags.includes('new-york')) currencySign = '$';
+        else if (show.tags.includes('berlin') || show.tags.includes('ibiza') || show.tags.includes('amsterdam')) currencySign = '€';
+
+        let upgrade = 0;
+        if (tier === 'VIP') upgrade = currencySign === '¥' ? 4000 : (currencySign === '₩' ? 45000 : (['£','$','€'].includes(currencySign) ? 40 : 2000));
+        if (tier === 'SVIP') upgrade = currencySign === '¥' ? 9000 : (currencySign === '₩' ? 95000 : (['£','$','€'].includes(currencySign) ? 90 : 4500));
+        return base + upgrade;
+      },
+
+      renderTiers(show) {
+        const listContainer = document.getElementById('modalTiersList');
+        
+        let currencySign = '₱';
+        if (show.tags.includes('tokyo')) currencySign = '¥';
+        else if (show.tags.includes('seoul')) currencySign = '₩';
+        else if (show.tags.includes('london')) currencySign = '£';
+        else if (show.tags.includes('new-york')) currencySign = '$';
+        else if (show.tags.includes('berlin') || show.tags.includes('ibiza') || show.tags.includes('amsterdam')) currencySign = '€';
+        
+        const gaP   = show.priceNum;
+        const vipP  = this.getTierSeatPrice('VIP');
+        const svipP = this.getTierSeatPrice('SVIP');
+
+        if (this.viewMode === 'seats') {
+          let totalCost = this.selectedSeats.reduce((acc, s) => acc + s.price, 0);
+          let seatsSummary = this.selectedSeats.map(s => `${s.row}-${s.num}`).join(', ') || 'NONE SELECTED';
+
+          listContainer.innerHTML = `
+            <div style="padding: 1.5rem; border: 1px dashed rgba(255,255,255,0.1); background: rgba(255,255,255,0.01); display:flex; flex-direction:column; gap:1rem;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted)">Selected Node Matrix:</span>
+                <button class="btn-ticket" style="font-size:0.7rem; padding:0.3rem 0.8rem;" onclick="TerminalModal.resetToZoneView()">← Return To Overview</button>
+              </div>
+              <div style="font-family:var(--font-header); font-size:1.4rem; color:var(--accent-color); font-weight:800;">${this.selectedTier} TIER MAP</div>
+              
+              <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top:0.8rem; display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; font-size:0.85rem;">
+                <div>Seat Positions:</div>
+                <div style="text-align:right; font-family:monospace; color:#fff;">${seatsSummary}</div>
+                <div>Pass Tickets Qty:</div>
+                <div style="text-align:right; font-family:monospace; color:#fff;">${this.selectedSeats.length} / 4 Max</div>
+              </div>
+              
+              <div style="border-top: 1px dashed rgba(255,255,255,0.15); padding-top:0.8rem; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:bold; font-size:1rem; letter-spacing:1px;">TOTAL DUE:</span>
+                <span style="font-family:var(--font-header); font-size:1.6rem; color:#fff; font-weight:800;">${currencySign}${totalCost.toLocaleString()}</span>
+              </div>
+            </div>
+          `;
+          return;
+        }
+
+        listContainer.innerHTML = `
+          <div class="terminal-tier-card tier-svip" id="card-tier-SVIP" onclick="TerminalModal.transitionToSeatGrid('SVIP')">
+            <div class="tier-info-left">
+              <div class="tier-headline">
+                <span class="tier-key-badge">3</span>
+                <span class="tier-title">SVIP Royalty Lounge</span>
+              </div>
+              <div class="tier-demand-ticker" id="ticker-SVIP">SEATS REMAINING: <span id="count-SVIP">${this.seatsInventory['SVIP']}</span></div>
+            </div>
+            <div class="tier-info-right">
+              <div class="tier-rate">${currencySign}${svipP.toLocaleString()}</div>
+              <div class="tier-status-text">Front Row Blocks</div>
+            </div>
+          </div>
+
+          <div class="terminal-tier-card tier-vip" id="card-tier-VIP" onclick="TerminalModal.transitionToSeatGrid('VIP')">
+            <div class="tier-info-left">
+              <div class="tier-headline">
+                <span class="tier-key-badge">2</span>
+                <span class="tier-title">VIP Access Array</span>
+              </div>
+              <div class="tier-demand-ticker" id="ticker-VIP">SEATS REMAINING: <span id="count-VIP">${this.seatsInventory['VIP']}</span></div>
+            </div>
+            <div class="tier-info-right">
+              <div class="tier-rate">${currencySign}${vipP.toLocaleString()}</div>
+              <div class="tier-status-text">Mid Tier Clear-line</div>
+            </div>
+          </div>
+
+          <div class="terminal-tier-card tier-ga" id="card-tier-GA" onclick="TerminalModal.transitionToSeatGrid('GA')">
+            <div class="tier-info-left">
+              <div class="tier-headline">
+                <span class="tier-key-badge">1</span>
+                <span class="tier-title">General Admission</span>
+              </div>
+              <div class="tier-demand-ticker" id="ticker-GA">SEATS REMAINING: <span id="count-GA">${this.seatsInventory['GA']}</span></div>
+            </div>
+            <div class="tier-info-right">
+              <div class="tier-rate">${currencySign}${gaP.toLocaleString()}</div>
+              <div class="tier-status-text">Main Arena Floor</div>
+            </div>
+          </div>
+        `;
+
+        ['SVIP', 'VIP', 'GA'].forEach(tier => {
+          const cardEl = document.getElementById(`card-tier-${tier}`);
+          if (cardEl) {
+            cardEl.addEventListener('mouseenter', () => this.highlightZone(tier.toLowerCase()));
+            cardEl.addEventListener('mouseleave', () => this.syncZoneHighlightToSelection());
+          }
+        });
+
+        this.updateActiveTierUIClass();
+      },
+
+      resetToZoneView() {
+        this.viewMode = 'zone';
+        this.selectedSeats = [];
+        this.renderSVGDiagram(this.activeShow);
+        this.renderTiers(this.activeShow);
+        this.updateActionStateUI();
+        VibeCore.refreshCursorTracking();
+      },
+
+      updateActionStateUI() {
+        const actionBtn = document.getElementById('modalActionBtn');
+        const uxHint = document.getElementById('modalUXHint');
+
+        if(this.viewMode === 'seats') {
+          actionBtn.textContent = this.selectedSeats.length > 0 ? `PROCEED WITH ${this.selectedSeats.length} SEAT(S) →` : 'SELECT SEAT COORDINATES';
+          actionBtn.disabled = this.selectedSeats.length === 0;
+          actionBtn.style.opacity = this.selectedSeats.length === 0 ? '0.4' : '1';
+          uxHint.textContent = '[ ESC ] RETURN · [ CLICK SEAT ] ASSIGN SELECTION';
+        } else {
+          actionBtn.textContent = 'SELECT SEATING POSITION →';
+          actionBtn.disabled = false;
+          actionBtn.style.opacity = '1';
+          uxHint.textContent = '[ ESC ] CLOSE · [ 1-3 ] CHOOSE TIER · [ ENTER ] VIEW SEATS';
+        }
+      },
+
+      selectTier(tier) {
+        if(this.viewMode === 'seats') return;
+        this.selectedTier = tier;
+        SoundEngine.playClick();
+        this.updateActiveTierUIClass();
+        this.syncZoneHighlightToSelection();
+      },
+
+      highlightZone(tierClassLower) {
+        if (this.viewMode === 'seats') return;
+        document.querySelectorAll('.svg-zone').forEach(z => z.classList.remove('zone-active'));
+        const activeTarget = document.getElementById(`svg-zone-${tierClassLower}`);
+        if(activeTarget) activeTarget.classList.add('zone-active');
+      },
+
+      syncZoneHighlightToSelection() {
+        this.highlightZone(this.selectedTier.toLowerCase());
+      },
+
+      updateActiveTierUIClass() {
+        if (this.viewMode === 'seats') return;
+        document.querySelectorAll('.terminal-tier-card').forEach(c => c.classList.remove('selected'));
+        const activeCard = document.getElementById(`card-tier-${this.selectedTier}`);
+        if(activeCard) activeCard.classList.add('selected');
+      },
+
+      startDemandSimulation() {
+        clearInterval(this.demandInterval);
+        this.demandInterval = setInterval(() => {
+          const tiers = ['SVIP', 'VIP', 'GA'];
+          const pickedTier = tiers[Math.floor(Math.random() * tiers.length)];
+          const tierSeats = this.seatsDatabase[pickedTier];
+          
+          if(!tierSeats) return;
+          const availableSeats = tierSeats.filter(s => !s.occupied);
+          
+          if(availableSeats.length > 5) {
+            const chosenSeat = availableSeats[Math.floor(Math.random() * availableSeats.length)];
+            chosenSeat.occupied = true;
+            this.seatsInventory[pickedTier]--;
+            
+            if (this.viewMode === 'zone') {
+              const counterEl = document.getElementById(`count-${pickedTier}`);
+              if (counterEl) counterEl.textContent = this.seatsInventory[pickedTier];
+            } else if (this.viewMode === 'seats' && this.selectedTier === pickedTier) {
+              this.renderSVGDiagram(this.activeShow);
+            }
+          }
+        }, 5000 + Math.random() * 3000);
+      },
+
+      proceedToCheckout() {
+        if (this.viewMode === 'zone') {
+          this.transitionToSeatGrid(this.selectedTier);
+          return;
+        }
+        if (this.selectedSeats.length === 0) return;
+        
+        VibeCore.startCheckoutWithSeats(this.activeShow.id, this.selectedTier, this.selectedSeats);
+        this.close();
+      },
+
+      bindEvents() {
+        document.addEventListener('keydown', (e) => {
+          if (this.backdrop && this.backdrop.style.display === 'flex') {
+            if (e.key === 'Escape') {
+              if(this.viewMode === 'seats') {
+                this.resetToZoneView();
+              } else {
+                this.close();
+              }
+            }
+            if (this.viewMode === 'zone') {
+              if (e.key === '1') this.selectTier('GA');
+              if (e.key === '2') this.selectTier('VIP');
+              if (e.key === '3') this.selectTier('SVIP');
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                this.proceedToCheckout();
+              }
+            }
+          }
+        });
+      }
+    };
+
+    // =============================================
+    // VIBE CORE
+    // =============================================
+    const VibeCore = {
+      isUserLoggedIn: false, 
+      _pendingPurchase: null, 
+      purchasedTickets: [],
+
+      data: [
+        {
+          id: "show-1",
+          title: "NEON AURA TOUR",
+          venue: "Araneta Coliseum Stadium — Oct 24, 2026",
+          date: "2026-10-24",
+          priceNum: 3500, price: "₱3,500+",
+          status: "Selling Fast",
+          tags: ["manila"],
+          image: "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?auto=format&fit=crop&q=80&w=800",
+          layoutClass: "card-large"
+        },
+        {
+          id: "show-2",
+          title: "ECHOES IN THE DARK",
+          venue: "Samsung Theater Hall — Nov 02, 2026",
+          date: "2026-11-02",
+          priceNum: 1800, price: "₱1,800+",
+          status: "Low Inventory",
+          tags: ["manila"],
+          image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=800",
+          layoutClass: "card-small"
+        },
+        {
+          id: "show-3",
+          title: "TOKYO CYBERNET LIVE",
+          venue: "Shibuya Womb Field Track — Nov 18, 2026",
+          date: "2026-11-18",
+          priceNum: 6500, price: "¥6,500+",
+          status: "Selling Fast",
+          tags: ["tokyo"],
+          image: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80&w=800",
+          layoutClass: "card-large"
+        },
+        {
+          id: "show-4",
+          title: "SEOUL K-WAVE CIRCUIT",
+          venue: "Olympic Gymnastics Arena — Dec 05, 2026",
+          date: "2026-12-05",
+          priceNum: 88000, price: "₩88,000+",
+          status: "Selling Fast",
+          tags: ["seoul"],
+          image: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&q=80&w=800",
+          layoutClass: "card-small"
+        },
+        {
+          id: "show-5",
+          title: "LONDON BRUTALIST WAVE",
+          venue: "Millennium Dome Stadium — Nov 29, 2026",
+          date: "2026-11-29",
+          priceNum: 45, price: "£45+",
+          status: "Low Inventory",
+          tags: ["london"],
+          image: "https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&q=80&w=1200",
+          layoutClass: "card-full"
+        },
+        {
+          id: "show-6",
+          title: "NYC SONIC UNDERGROUND",
+          venue: "Brooklyn Warehouse — Dec 12, 2026",
+          date: "2026-12-12",
+          priceNum: 55, price: "$55+",
+          status: "Selling Fast",
+          tags: ["new-york"],
+          image: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&q=80&w=1200",
+          layoutClass: "card-large"
+        },
+        {
+          id: "show-7",
+          title: "BERLIN DEEP INDUSTRIAL",
+          venue: "Tresor Vault Tunnel — Dec 21, 2026",
+          date: "2026-12-21",
+          priceNum: 35, price: "€35+",
+          status: null,
+          tags: ["berlin"],
+          image: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&q=80&w=800",
+          layoutClass: "card-small"
+        },
+        {
+          id: "show-8",
+          title: "IBIZA CLOSING RESIDENCY",
+          venue: "Hï Beach Amphitheater — Oct 18, 2026",
+          date: "2026-10-18",
+          priceNum: 75, price: "€75+",
+          status: "Low Inventory",
+          tags: ["ibiza"],
+          image: "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?auto=format&fit=crop&q=80&w=800",
+          layoutClass: "card-small"
+        },
+        {
+          id: "show-9",
+          title: "AMSTERDAM DECI-BELS",
+          venue: "Ziggo Dome Arena — Nov 10, 2026",
+          date: "2026-11-10",
+          priceNum: 60, price: "€60+",
+          status: null,
+          tags: ["amsterdam"],
+          image: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&q=80&w=1200",
+          layoutClass: "card-full"
+        }
+      ],
+
+      activeCheckout: { show: null, tier: "GA", qty: 1, basePrice: 0, seatLabels: "" },
+
+      get cursor()       { return document.getElementById('custom-cursor'); },
+      get gridContainer(){ return document.getElementById('concertGridContainer'); },
+      get body()         { return document.body; },
+      get dynamicArea()  { return document.getElementById('drawerDynamicContent'); },
+      get titleArea()    { return document.getElementById('authTitle'); },
+      get sliderIndicator() { return document.getElementById('sliderIndicator'); },
+
+      init() {
+        this.restoreDefaultAuthUI();
+        this.renderGrid('all');
+        this.bindGlobalEvents();
+        FooterStatusRotator.init();
+        TerminalModal.init();
+        ArtistModal.init();
+        
+        setTimeout(() => this.syncIndicatorPosition(), 100);
+
+        const scheduleGlitch = () => {
+          const delay = 8000 + Math.random() * 4000;
+          setTimeout(() => { this.triggerLogoGlitch(); scheduleGlitch(); }, delay);
+        };
+        setTimeout(scheduleGlitch, 5000);
+
+        this.startCountdownTick();
+      },
+
+      triggerLogoGlitch() {
+        const logo = document.getElementById('siteLogo');
+        if (!logo) return;
+        logo.classList.add('glitching');
+        setTimeout(() => logo.classList.remove('glitching'), 200);
+      },
+
+      startCountdownTick() {
+        const updateAll = () => {
+          document.querySelectorAll('.card-countdown[data-date]').forEach(el => {
+            el.textContent = getCountdown(el.dataset.date);
+          });
+        };
+        updateAll();
+        setInterval(updateAll, 60000);
+      },
+
+      openMap(showId) {
+        const selectedShow = this.data.find(s => s.id === showId);
+        if(selectedShow) {
+          TerminalModal.open(selectedShow);
+        }
+      },
+
+      startCheckoutWithSeats(showId, tier, selectedSeats) {
+        if (!this.isUserLoggedIn) {
+          this.restoreDefaultAuthUI();
+          this.body.classList.add('auth-open');
+          SoundEngine.playOpen();
+          this._pendingPurchase = { type: 'seats', showId, tier, selectedSeats: [...selectedSeats] };
+          return;
+        }
+
+        const show = this.data.find(s => s.id === showId);
+        const totalCost = selectedSeats.reduce((acc, s) => acc + s.price, 0);
+        const labelsStr = selectedSeats.map(s => `${s.row}-${s.num}`).join(', ');
+
+        this.activeCheckout = { 
+          show, 
+          tier, 
+          qty: selectedSeats.length, 
+          basePrice: totalCost / selectedSeats.length,
+          seatLabels: labelsStr 
+        };
+
+        this.titleArea.innerText = "Checkout";
+        this.body.classList.remove('view-register');
+        this.body.classList.add('auth-open');
+        SoundEngine.playOpen();
+        this.renderCheckoutStep1();
+      },
+
+      startCheckoutPipeline(showId) {
+        if (!this.isUserLoggedIn) {
+          this.restoreDefaultAuthUI();
+          this.body.classList.add('auth-open');
+          SoundEngine.playOpen();
+          this._pendingPurchase = { type: 'pipeline', showId };
+          return;
+        }
+
+        const targetShow = this.data.find(s => s.id === showId);
+        this.activeCheckout.show = targetShow;
+        this.activeCheckout.basePrice = targetShow.priceNum;
+        this.activeCheckout.qty = 1;
+        this.activeCheckout.tier = "GA";
+        this.activeCheckout.seatLabels = "Auto Allocated";
+        this.titleArea.innerText = "Checkout";
+        this.body.classList.remove('view-register');
+        this.body.classList.add('auth-open');
+        SoundEngine.playOpen();
+        this.renderCheckoutStep1();
+      },
+
+      handleMockLogin() {
+        this.isUserLoggedIn = true;
+        document.getElementById('openAuth').innerText = "Sign Out";
+        FooterStatusRotator.triggerSystemAlert("OPERATIONAL ACCOUNT VERIFIED // Welcome Back");
+
+        if (this._pendingPurchase) {
+          const p = this._pendingPurchase;
+          this._pendingPurchase = null; 
+          
+          if (p.type === 'seats') {
+            this.startCheckoutWithSeats(p.showId, p.tier, p.selectedSeats);
+          } else if (p.type === 'pipeline') {
+            this.startCheckoutPipeline(p.showId);
+          }
+        } else {
+          this.body.classList.remove('auth-open');
+          SoundEngine.playSuccess();
+        }
+      },
+
+      handleSignOut() {
+        this.isUserLoggedIn = false;
+        document.getElementById('openAuth').innerText = "Sign In";
+        this._pendingPurchase = null;
+        FooterStatusRotator.triggerSystemAlert("ACCESS SESSION TERMINATED // Secure Logged Out");
+        SoundEngine.playClick();
+      },
+
+      renderGrid(filterValue = 'all') {
+        this.gridContainer.classList.remove('concert-grid-scrolled');
+
+        const filteredShows = this.data.filter(show =>
+          filterValue === 'all' ? true : show.tags.includes(filterValue)
+        );
+
+        let htmlMarkup = '';
+        filteredShows.forEach((show, index) => {
+          let currentClass = show.layoutClass;
+          if (filteredShows.length <= 2) currentClass = index === 0 ? 'card-large' : 'card-small';
+
+          const statusBadge = show.status
+            ? `<div class="ticket-status" ${show.status === 'Low Inventory' ? 'style="background:#fff;"' : ''}>${show.status}</div>`
+            : '';
+          const inlineWrapperStyle = currentClass === 'card-small' ? 'style="height:300px;"' : '';
+          const fullTitleStyle    = currentClass === 'card-full'  ? 'style="font-size:2.8rem;"' : '';
+          const staggerDelay = `${index * 0.08}s`;
+          const countdown = getCountdown(show.date);
+
+          htmlMarkup += `
+            <div class="concert-card ${currentClass}" data-id="${show.id}" style="--stagger-delay:${staggerDelay};">
+              <div class="card-front">
+                <div class="image-wrapper" ${inlineWrapperStyle}>
+                  <img src="${show.image}" alt="${show.title}" class="art-placeholder">
+                  ${statusBadge}
+                </div>
+                <div class="card-details">
+                  <div>
+                    <h3 ${fullTitleStyle}>${show.title}</h3>
+                    <p class="venue-info">${show.venue}</p>
+                    <div class="card-countdown" data-date="${show.date}">${countdown}</div>
+                  </div>
+                  <div class="card-meta">
+                    <span class="price">${show.price}</span>
+                    <button class="btn-ticket" onclick="VibeCore.openMap('${show.id}')">Get Passes</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+
+        this.gridContainer.innerHTML = htmlMarkup;
+        this.refreshCursorTracking();
+        this.updateFloatingFilterText(filterValue);
+
+        setTimeout(() => {
+          this.gridContainer.classList.add('concert-grid-scrolled');
+        }, 600 + filteredShows.length * 80);
+      },
+
+      updateFloatingFilterText(currentFilter) {
+        const t1 = document.getElementById('floatTag1');
+        const t2 = document.getElementById('floatTag2');
+        const t3 = document.getElementById('floatTag3');
+
+        if (currentFilter === 'all') {
+          swapFloatText(t1, "ALL SHOWS", true);
+          swapFloatText(t2, "GLOBAL REALMS", false);
+          swapFloatText(t3, "LIVE CIRCUITS", false);
+        } else {
+          swapFloatText(t1, currentFilter.replace('-', ' ').toUpperCase(), true);
+          swapFloatText(t2, "CURATED REALM", false);
+          swapFloatText(t3, "PASSPORT ACTIVE", false);
+        }
+      },
+
+      syncIndicatorPosition() {
+        const activeChip = document.querySelector('.edge-filter-chip.active');
+        const indicator  = this.sliderIndicator;
+        if (!activeChip || !indicator) return;
+        const containerTop = document.getElementById('filterBarContainer').getBoundingClientRect().top;
+        const chipRect = activeChip.getBoundingClientRect();
+        indicator.style.top    = `${chipRect.top - containerTop}px`;
+        indicator.style.height = `${chipRect.height}px`;
+      },
+
+      renderCheckoutStep1() {
+        const show = this.activeCheckout.show;
+        const finalTotal = this.activeCheckout.basePrice * this.activeCheckout.qty;
+        
+        let currencySign = '₱';
+        if (show.tags.includes('tokyo')) currencySign = '¥';
+        else if (show.tags.includes('seoul')) currencySign = '₩';
+        else if (show.tags.includes('london')) currencySign = '£';
+        else if (show.tags.includes('new-york')) currencySign = '$';
+        else if (show.tags.includes('berlin') || show.tags.includes('ibiza') || show.tags.includes('amsterdam')) currencySign = '€';
+
+        this.dynamicArea.innerHTML = `
+          <div class="pipeline-steps-indicator">
+            <span class="pipeline-step active">01. Seating Summary</span>
+            <span class="pipeline-step">➔ 02. Secure Payment</span>
+          </div>
+          <div class="checkout-summary-box">
+            <h4>${show.title}</h4>
+            <p>${show.venue}</p>
+            <div class="checkout-row"><span>Pass Tier:</span><strong>${this.activeCheckout.tier}</strong></div>
+            <div class="checkout-row"><span>Seat Assign:</span><strong style="color:var(--accent-color); font-family:monospace;">${this.activeCheckout.seatLabels}</strong></div>
+            <div class="checkout-row"><span>Quantity:</span><strong>${this.activeCheckout.qty}x</strong></div>
+            <div class="checkout-row total"><span>Total Amount:</span><span>${currencySign}${finalTotal.toLocaleString()}</span></div>
+          </div>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:1.5rem; text-transform:uppercase; line-height:1.4;">
+            Verify your layout assignment matrices before moving forward into the encrypted banking processing stream core.
+          </p>
+          <button class="btn-submit" onclick="VibeCore.renderCheckoutStep2()">Proceed to Payment Gateway</button>
+        `;
+        this.refreshCursorTracking();
+      },
+
+      renderCheckoutStep2() {
+        const show = this.activeCheckout.show;
+        const finalTotal = this.activeCheckout.basePrice * this.activeCheckout.qty;
+        
+        let currencySign = '₱';
+        if (show.tags.includes('tokyo')) currencySign = '¥';
+        else if (show.tags.includes('seoul')) currencySign = '₩';
+        else if (show.tags.includes('london')) currencySign = '£';
+        else if (show.tags.includes('new-york')) currencySign = '$';
+        else if (show.tags.includes('berlin') || show.tags.includes('ibiza') || show.tags.includes('amsterdam')) currencySign = '€';
+
+        this.dynamicArea.innerHTML = `
+          <div class="pipeline-steps-indicator">
+            <span class="pipeline-step">01. Seating Summary</span>
+            <span class="pipeline-step active">➔ 02. Secure Payment</span>
+          </div>
+          <div class="checkout-summary-box" style="border-color:var(--accent-color);">
+            <div class="checkout-row"><span>Pass Curation:</span><span>${this.activeCheckout.tier} Tier (${this.activeCheckout.qty}x)</span></div>
+            <div class="checkout-row"><span>Coordinates:</span><span style="font-family:monospace;">${this.activeCheckout.seatLabels}</span></div>
+            <div class="checkout-row total"><span>Due Now:</span><span style="color:var(--accent-color);">${currencySign}${finalTotal.toLocaleString()}</span></div>
+          </div>
+          <form onsubmit="event.preventDefault(); VibeCore.executeMockVerification();">
+            <div class="form-group">
+              <input type="text" id="payCard" placeholder=" " required pattern="[0-9]{16,19}">
+              <label for="payCard">Card Number (16-digits)</label>
+            </div>
+            <div class="form-group" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+              <div style="position:relative;">
+                <input type="text" id="payExp" placeholder=" " required>
+                <label for="payExp">MM/YY</label>
+              </div>
+              <div style="position:relative;">
+                <input type="password" id="payCvv" placeholder=" " required pattern="[0-9]{3}">
+                <label for="payCvv">CVV</label>
+              </div>
+            </div>
+            <button type="submit" class="btn-submit" id="paySubmitBtn">Authorize Transaction</button>
+            <button type="button" class="btn-submit" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.2);margin-top:0.5rem;" onclick="VibeCore.renderCheckoutStep1()">Return to Summary</button>
+          </form>
+        `;
+        this.refreshCursorTracking();
+      },
+
+      executeMockVerification() {
+        const btn = document.getElementById('paySubmitBtn');
+        btn.innerText = "VERIFYING FUNDS...";
+        btn.disabled = true; btn.style.opacity = "0.5";
+
+        setTimeout(() => {
+          const show = this.activeCheckout.show;
+          const tokenReceipt = "VIBE-" + Math.floor(100000 + Math.random() * 900000);
+          
+          let currencySign = '₱';
+          if (show.tags.includes('tokyo')) currencySign = '¥';
+          else if (show.tags.includes('seoul')) currencySign = '₩';
+          else if (show.tags.includes('london')) currencySign = '£';
+          else if (show.tags.includes('new-york')) currencySign = '$';
+          else if (show.tags.includes('berlin') || show.tags.includes('ibiza') || show.tags.includes('amsterdam')) currencySign = '€';
+
+          const finalTotal = this.activeCheckout.basePrice * this.activeCheckout.qty;
+
+          this.purchasedTickets.unshift({
+            tokenId: tokenReceipt,
+            showTitle: show.title,
+            venue: show.venue,
+            showDate: show.date,
+            tier: this.activeCheckout.tier,
+            qty: this.activeCheckout.qty,
+            total: finalTotal,
+            currencySign: currencySign,
+            seatLabels: this.activeCheckout.seatLabels,
+            purchasedAt: Date.now()
+          });
+          this.updateTicketCountBadge();
+
+          SoundEngine.playSuccess();
+          this.titleArea.innerText = "PASSPORT GRANTED";
+          this.dynamicArea.innerHTML = `
+            <div style="text-align:center;padding:1rem 0;">
+              <div style="font-size:3.5rem;margin-bottom:1rem;color:var(--accent-color);">✓</div>
+              <h3 style="font-family:var(--font-header);font-size:1.5rem;text-transform:uppercase;margin-bottom:1rem;">Transaction Authenticated</h3>
+              <div style="background:#1c1c1c;border:1px solid var(--accent-color);padding:1.5rem;text-align:left;font-family:monospace;font-size:0.85rem;margin-bottom:2rem;">
+                <div style="color:var(--accent-color);font-weight:bold;margin-bottom:0.5rem;">OFFICIAL DIGITAL ACCESS RECEIPT</div>
+                <div>SHOW: ${show.title}</div>
+                <div>TIER: ${this.activeCheckout.tier}</div>
+                <div>SEATS: ${this.activeCheckout.seatLabels}</div>
+                <div>QTY: ${this.activeCheckout.qty} Passes</div>
+                <div style="margin-top:0.5rem;border-top:1px solid rgba(255,255,255,0.1);padding-top:0.5rem;">TOKEN ID: ${tokenReceipt}</div>
+              </div>
+              <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:2rem;">A copy of your digital access key has been routed to your authorized operational profile.</p>
+              <button class="btn-submit" onclick="VibeCore.restoreDefaultAuthUI()">Return to Terminal</button>
+              <button class="btn-submit" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.2);margin-top:0.5rem;" onclick="VibeCore.body.classList.remove('auth-open'); VibeCore.openMyTickets();">View My Tickets</button>
+            </div>
+          `;
+          this.refreshCursorTracking();
+        }, 1500);
+      },
+
+      updateTicketCountBadge() {
+        const badge = document.getElementById('ticketCountBadge');
+        if (!badge) return;
+        if (this.purchasedTickets.length > 0) {
+          badge.textContent = this.purchasedTickets.length;
+          badge.style.display = 'inline-block';
+        } else {
+          badge.style.display = 'none';
+        }
+      },
+
+      restoreDefaultAuthUI() {
+        this.body.classList.remove('auth-open');
+        setTimeout(() => {
+          this.titleArea.innerText = "Sign In";
+          this.body.classList.remove('view-register');
+          this.dynamicArea.innerHTML = `
+            <form id="authForm" onsubmit="event.preventDefault(); VibeCore.handleMockLogin();">
+              <div class="form-group register-only">
+                <input type="text" id="regName" placeholder=" ">
+                <label for="regName">Full Name</label>
+              </div>
+              <div class="form-group">
+                <input type="email" id="authEmail" placeholder=" " required>
+                <label for="authEmail">Email Address</label>
+              </div>
+              <div class="form-group">
+                <input type="password" id="authPassword" placeholder=" " required>
+                <label for="authPassword">Password</label>
+              </div>
+              <button type="submit" class="btn-submit" id="submitBtn">Access Passes</button>
+            </form>
+            <p class="auth-toggle-text" id="toggleAuthWrapper">
+              <span class="login-hidden">New to the vibe? <span id="switchToRegister" style="text-decoration:underline;cursor:none;">Register</span></span>
+              <span class="register-only">Already have an account? <span id="switchToLogin" style="text-decoration:underline;cursor:none;">Sign In</span></span>
+            </p>
+          `;
+          this.bindDrawerToggleEvents();
+          this.refreshCursorTracking();
+        }, 400);
+      },
+
+      openMyTickets() {
+        if (!this.isUserLoggedIn) {
+          this.restoreDefaultAuthUI();
+          this.body.classList.add('auth-open');
+          SoundEngine.playOpen();
+          return;
+        }
+        this.renderTicketsList();
+        this.body.classList.add('tickets-open');
+        SoundEngine.playOpen();
+        this.refreshCursorTracking();
+      },
+
+      closeMyTickets() {
+        this.body.classList.remove('tickets-open');
+      },
+
+      renderTicketsList() {
+        const container = document.getElementById('ticketsListContainer');
+        if (!container) return;
+
+        if (this.purchasedTickets.length === 0) {
+          container.innerHTML = `
+            <div class="tickets-empty-state">
+              <div class="glyph">◈</div>
+              <p>No passes acquired yet. Browse the lineup and secure your spot.</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = this.purchasedTickets.map(t => {
+          const tierClass = t.tier === 'VIP' ? 'tier-vip' : (t.tier === 'GA' ? 'tier-ga' : 'tier-svip');
+          const eventDate = new Date(t.showDate);
+          const dateLabel = isNaN(eventDate.getTime()) ? t.showDate : eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          return `
+            <div class="ticket-history-card ${tierClass}">
+              <div class="thc-top">
+                <div>
+                  <div class="thc-title">${t.showTitle}</div>
+                  <div class="thc-venue">${t.venue}</div>
+                </div>
+                <span class="thc-tier-badge">${t.tier}</span>
+              </div>
+              <div class="thc-meta-row">
+                <span>DATE: <b>${dateLabel}</b></span>
+                <span>SEATS: <b style="color:var(--accent-color); font-family:monospace; font-size:0.7rem;">${t.seatLabels || 'GA Floor'}</b></span>
+              </div>
+              <div class="thc-meta-row" style="margin-top:0.4rem;border-top:none;padding-top:0;">
+                <span>TOKEN: <b>${t.tokenId}</b></span>
+                <span>PAID: <b>${t.currencySign}${t.total.toLocaleString()}</b></span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      },
+
+      refreshCursorTracking() {
+        const els = document.querySelectorAll('.concert-card, .btn-ticket, .btn-nav-auth, .btn-nav-tickets, .btn-close, #toggleAuthWrapper span, .btn-submit, .lineup-card, .edge-filter-chip, .btn-fast-pass, .terminal-tier-card, .btn-proceed, .terminal-close-btn, select, input, option, .svg-zone, .ticket-history-card, .artist-close-btn, .svg-seat');
+        els.forEach(el => {
+          el.removeEventListener('mouseenter', this._cursorGrow);
+          el.removeEventListener('mouseleave', this._cursorShrink);
+        });
+        this._cursorGrow   = () => { const c = document.getElementById('custom-cursor'); c.style.width='50px'; c.style.height='50px'; c.style.backgroundColor='rgba(204,255,0,0.2)'; };
+        this._cursorShrink = () => { const c = document.getElementById('custom-cursor'); c.style.width='20px'; c.style.height='20px'; c.style.backgroundColor='transparent'; };
+        els.forEach(el => {
+          el.addEventListener('mouseenter', this._cursorGrow);
+          el.addEventListener('mouseleave', this._cursorShrink);
+        });
+      },
+
+      bindGlobalEvents() {
+        document.addEventListener('mousemove', e => {
+          const c = document.getElementById('custom-cursor');
+          if (c) { c.style.left = e.clientX + 'px'; c.style.top = e.clientY + 'px'; }
+        });
+
+        document.getElementById('openAuth').addEventListener('click', () => {
+          if (this.isUserLoggedIn) {
+            this.handleSignOut();
+          } else {
+            this.restoreDefaultAuthUI();
+            this.body.classList.add('auth-open');
+            SoundEngine.playOpen();
+          }
+        });
+        document.getElementById('fastPassBtn').addEventListener('click', () => this.startCheckoutPipeline("show-1"));
+        document.getElementById('closeAuth').addEventListener('click', () => this.body.classList.remove('auth-open'));
+        document.getElementById('authOverlay').addEventListener('click', () => this.body.classList.remove('auth-open'));
+
+        document.getElementById('openTickets').addEventListener('click', () => this.openMyTickets());
+        document.getElementById('closeTickets').addEventListener('click', () => this.closeMyTickets());
+        document.getElementById('ticketsOverlay').addEventListener('click', () => this.closeMyTickets());
+
+        this.bindDrawerToggleEvents();
+
+        document.querySelectorAll('.edge-filter-chip').forEach(chip => {
+          chip.addEventListener('click', e => {
+            document.querySelectorAll('.edge-filter-chip').forEach(c => c.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+            this.syncIndicatorPosition();
+            SoundEngine.playClick();
+            this.renderGrid(e.currentTarget.getAttribute('data-filter'));
+          });
+        });
+
+        window.addEventListener('resize', () => this.syncIndicatorPosition());
+
+        document.addEventListener('keydown', e => {
+          if (e.key === 'Escape' && document.body.classList.contains('tickets-open')) {
+            this.closeMyTickets();
+          }
+        });
+
+        const filterKeys = { 
+          '1': 'all', 
+          '2': 'manila', 
+          '3': 'tokyo', 
+          '4': 'seoul', 
+          '5': 'london', 
+          '6': 'new-york',
+          '7': 'berlin',
+          '8': 'ibiza',
+          '9': 'amsterdam'
+        };
+        document.addEventListener('keydown', e => {
+          if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+          
+          const modal = document.getElementById('terminalModal');
+          if (modal && modal.style.display === 'flex') return;
+          
+          const artModal = document.getElementById('artistModal');
+          if (artModal && artModal.style.display === 'flex') return;
+          
+          if (document.body.classList.contains('tickets-open') || document.body.classList.contains('auth-open')) return;
+
+          if (!filterKeys[e.key]) return;
+          const targetFilter = filterKeys[e.key];
+          const targetChip = document.querySelector(`.edge-filter-chip[data-filter="${targetFilter}"]`);
+          if (!targetChip) return;
+          document.querySelectorAll('.edge-filter-chip').forEach(c => c.classList.remove('active'));
+          targetChip.classList.add('active');
+          this.syncIndicatorPosition();
+          SoundEngine.playClick();
+          this.renderGrid(targetFilter);
+        });
+      },
+
+      bindDrawerToggleEvents() {
+        const switchToRegister = document.getElementById('switchToRegister');
+        const switchToLogin   = document.getElementById('switchToLogin');
+        const authTitle  = document.getElementById('authTitle');
+        const submitBtn  = document.getElementById('submitBtn');
+        if (switchToRegister && switchToLogin) {
+          switchToRegister.addEventListener('click', () => { this.body.classList.add('view-register'); authTitle.innerText = "Register"; submitBtn.innerText = "Create Account"; });
+          switchToLogin.addEventListener('click',    () => { this.body.classList.remove('view-register'); authTitle.innerText = "Sign In"; submitBtn.innerText = "Access Passes"; });
+        }
+      }
+    };
+
+    VibeCore.init();
+  </script>
+</body>
+</html>
